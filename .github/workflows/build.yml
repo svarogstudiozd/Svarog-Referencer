@@ -1,0 +1,67 @@
+name: Build Plugin
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # allows manual trigger from GitHub website
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvarogReferencer-Windows-VST3
+          path: build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3
+          if-no-files-found: error
+
+      - name: Upload Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvarogReferencer-Windows-Standalone
+          path: build/SvarogReferencer_artefacts/Release/Standalone/Svarog Referencer.exe
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvarogReferencer-macOS-VST3
+          path: build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3
+
+      - name: Upload AU
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvarogReferencer-macOS-AU
+          path: build/SvarogReferencer_artefacts/Release/AU/Svarog Referencer.component
+
+      - name: Upload Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvarogReferencer-macOS-Standalone
+          path: build/SvarogReferencer_artefacts/Release/Standalone/Svarog Referencer.app
