@@ -1,0 +1,11 @@
+build/
+cmake-build-*/
+.cache/
+.idea/
+.vscode/
+*.user
+.DS_Store
+CMakeUserPresets.json
+
+# Local credentials / notes
+*.rtf
