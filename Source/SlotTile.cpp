@@ -113,7 +113,7 @@ void SlotTile::paint (juce::Graphics& g)
     }
 
     auto textArea = getLocalBounds().reduced (10, 0);
-    auto rightArea = textArea.removeFromRight (22);
+    textArea.removeFromRight (24);
 
     auto refArea = textArea.removeFromLeft (48);
     g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);

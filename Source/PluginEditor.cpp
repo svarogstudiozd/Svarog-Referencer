@@ -117,13 +117,6 @@ int ReferenceMaxAudioProcessorEditor::computeHeightForSlots (int numSlots)
 {
     numSlots = juce::jlimit (0, ReferenceMaxAudioProcessor::maxReferenceSlots, numSlots);
 
-    const int headerHeight    = 48;
-    const int gap             = 8;
-    const int spectrumHeight  = 240;
-    const int filterBarHeight = 44;
-    const int detailHeight    = 200;
-    const int outerPadding    = 32;
-
     const int fixedChrome =
         headerHeight + gap
       + spectrumHeight + gap
@@ -178,8 +171,8 @@ void ReferenceMaxAudioProcessorEditor::paint (juce::Graphics& g)
 
 void ReferenceMaxAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (16);
-    auto header = bounds.removeFromTop (48);
+    auto bounds = getLocalBounds().reduced (outerPadding / 2);
+    auto header = bounds.removeFromTop (headerHeight);
     auto modes  = header.removeFromRight (260);
 
     titleLabel.setBounds (header.removeFromTop (26));
@@ -187,16 +180,12 @@ void ReferenceMaxAudioProcessorEditor::resized()
 
     modeButton.setBounds (modes.reduced (4, 6));
 
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (gap);
 
-    const int spectrumHeight = 240;
     auto topRow = bounds.removeFromTop (spectrumHeight);
 
     // Two meters on the right of the spectrum. Wider than before so the
     // LUFS mode button (labelled "LUFS-S/M/I") fits comfortably.
-    const int meterWidth = 56;
-    const int meterGap   = 6;
-
     auto vuArea = topRow.removeFromRight (meterWidth);
     topRow.removeFromRight (meterGap);
 
@@ -207,15 +196,13 @@ void ReferenceMaxAudioProcessorEditor::resized()
     lufsMeter.setBounds (lufsArea);
     vuMeter.setBounds (vuArea);
 
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (gap);
 
-    const int filterBarHeight = 44;
     filterBar.setBounds (bounds.removeFromTop (filterBarHeight));
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (gap);
 
-    const int detailHeight = 200;
     detailView.setBounds (bounds.removeFromTop (detailHeight));
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (gap);
 
     slotGrid.setBounds (bounds);
 }

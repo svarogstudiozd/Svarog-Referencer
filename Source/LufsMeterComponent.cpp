@@ -13,6 +13,9 @@ LufsMeterComponent::LufsMeterComponent()
 {
     modeButton.setClickingTogglesState (false);
     modeButton.onClick = [this] { cycleMode(); };
+
+    // The meter button uses the panel colour for both states (not the
+    // LookAndFeel default accent red) so it stays visually neutral.
     modeButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
     modeButton.setColour (juce::TextButton::buttonOnColourId, Theme::panel);
     modeButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);

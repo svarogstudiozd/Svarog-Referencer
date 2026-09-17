@@ -21,6 +21,8 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     fileLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (fileLabel);
 
+    // Replace button is deliberately red (primary action) and overrides
+    // the LookAndFeel's default panel colour.
     replaceButton.onClick = [this] { openFileChooser(); };
     replaceButton.setColour (juce::TextButton::buttonColourId, Theme::accentRed);
     replaceButton.setColour (juce::TextButton::textColourOnId, Theme::greyLight);
@@ -32,19 +34,11 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     {
         processor.getSlot (currentLogicalIndex).setLoopEnabled (loopButton.getToggleState());
     };
-    loopButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-    loopButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    loopButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-    loopButton.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
     loopButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (loopButton);
 
     followButton.setClickingTogglesState (false);
     followButton.onClick = [this] { toggleFollow(); };
-    followButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-    followButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    followButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-    followButton.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
     followButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (followButton);
 
@@ -58,10 +52,6 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
             startLearning();
         }
     };
-    matchButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-    matchButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    matchButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-    matchButton.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
     matchButton.setTooltip (
         "Click to learn the DAW's loudness and match this reference to it.\n"
         "Click again to turn matching off.\n"
@@ -72,10 +62,6 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     offsetButton.setClickingTogglesState (false);
     offsetButton.onClick = [this] { onOffsetButtonClicked(); };
     offsetButton.onDoubleClick = [this] { onOffsetButtonDoubleClicked(); };
-    offsetButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-    offsetButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    offsetButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-    offsetButton.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
     offsetButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (offsetButton);
 

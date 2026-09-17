@@ -29,6 +29,18 @@ public:
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
 
 private:
+    // Layout constants shared between computeHeightForSlots() and resized().
+    // Keeping them in one place guarantees the computed height always
+    // matches what resized() actually lays out.
+    static constexpr int headerHeight    = 48;
+    static constexpr int gap             = 8;
+    static constexpr int spectrumHeight  = 240;
+    static constexpr int filterBarHeight = 44;
+    static constexpr int detailHeight    = 200;
+    static constexpr int outerPadding    = 32;
+    static constexpr int meterWidth      = 56;
+    static constexpr int meterGap        = 6;
+
     void updateModeButtons();
     void setListenMode (int modeIndex);
 

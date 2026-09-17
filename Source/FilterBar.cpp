@@ -16,10 +16,6 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     auto setupSoloButton = [this] (juce::TextButton& b, int choice)
     {
         b.setClickingTogglesState (false);
-        b.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-        b.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-        b.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-        b.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
         b.onClick = [this, choice] { toggleSoloChoice (choice); };
         addAndMakeVisible (b);
     };
@@ -34,10 +30,6 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     auto setupUtilityButton = [this] (juce::TextButton& b)
     {
         b.setClickingTogglesState (true);
-        b.setColour (juce::TextButton::buttonColourId,   Theme::panel);
-        b.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-        b.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-        b.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
         addAndMakeVisible (b);
     };
 
