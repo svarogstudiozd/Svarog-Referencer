@@ -87,6 +87,17 @@ private:
     ReferenceMaxAudioProcessor& processor;
     int currentLogicalIndex = 0;
 
+    // Which physical slot the view is currently attached to. Tracked so
+    // setSlot() can detect when a slot removal has re-mapped the current
+    // logical index to a different underlying slot, even though the
+    // logical index itself hasn't changed.
+    int currentPhysicalIndex = -1;
+
+    // The slot we are currently listening to. Tracked directly (rather
+    // than via logical index) because slot reordering can make the
+    // previously-attached slot unreachable through getSlot(logicalIndex).
+    ReferenceSlot* attachedSlot = nullptr;
+
     juce::Label titleLabel;
     juce::Label fileLabel;
     juce::TextButton replaceButton { "Replace" };

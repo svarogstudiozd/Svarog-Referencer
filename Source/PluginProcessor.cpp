@@ -93,7 +93,7 @@ ReferenceMaxAudioProcessor::~ReferenceMaxAudioProcessor()
 void ReferenceMaxAudioProcessor::resetSlotOrderToIdentity() noexcept
 {
     for (int i = 0; i < maxReferenceSlots; ++i)
-        slotOrder[i] = i;
+        slotOrder[(size_t) i].store (i, std::memory_order_relaxed);
 }
 
 int ReferenceMaxAudioProcessor::physicalIndexFor (int logicalIndex) const noexcept
@@ -103,13 +103,13 @@ int ReferenceMaxAudioProcessor::physicalIndexFor (int logicalIndex) const noexce
     if (logicalIndex >= maxReferenceSlots)
         logicalIndex = maxReferenceSlots - 1;
 
-    return slotOrder[logicalIndex];
+    return slotOrder[(size_t) logicalIndex].load (std::memory_order_relaxed);
 }
 
 int ReferenceMaxAudioProcessor::logicalIndexFor (int physicalIndex) const noexcept
 {
     for (int i = 0; i < maxReferenceSlots; ++i)
-        if (slotOrder[i] == physicalIndex)
+        if (slotOrder[(size_t) i].load (std::memory_order_relaxed) == physicalIndex)
             return i;
 
     return -1;
@@ -171,7 +171,7 @@ void ReferenceMaxAudioProcessor::addSlot()
 
     bool used[maxReferenceSlots] = {};
     for (int i = 0; i < current; ++i)
-        used[slotOrder[i]] = true;
+        used[slotOrder[(size_t) i].load (std::memory_order_relaxed)] = true;
 
     int nextPhysical = -1;
     for (int p = 0; p < maxReferenceSlots; ++p)
@@ -186,7 +186,7 @@ void ReferenceMaxAudioProcessor::addSlot()
     if (nextPhysical < 0)
         return;
 
-    slotOrder[current] = nextPhysical;
+    slotOrder[(size_t) current].store (nextPhysical, std::memory_order_relaxed);
 
     if (auto* p = apvts.getParameter ("num_visible_slots"))
     {
@@ -213,12 +213,13 @@ void ReferenceMaxAudioProcessor::removeSlot (int logicalIndex)
     if (logicalIndex < 0 || logicalIndex >= current)
         return;
 
-    const int freedPhysical = slotOrder[logicalIndex];
+    const int freedPhysical = slotOrder[(size_t) logicalIndex].load (std::memory_order_relaxed);
 
     for (int i = logicalIndex; i < current - 1; ++i)
-        slotOrder[i] = slotOrder[i + 1];
+        slotOrder[(size_t) i].store (slotOrder[(size_t) (i + 1)].load (std::memory_order_relaxed),
+                                     std::memory_order_relaxed);
 
-    slotOrder[current - 1] = current - 1;
+    slotOrder[(size_t) (current - 1)].store (current - 1, std::memory_order_relaxed);
 
     if (slots[(size_t) freedPhysical] != nullptr)
         slots[(size_t) freedPhysical]->reset();
@@ -413,7 +414,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferenceMaxAudioProcessor::
         highRange.setSkewForCentre (4000.0f);
         layout.add (std::make_unique<juce::AudioParameterFloat> (
             juce::ParameterID { "filter_high_xover", 1 },
-            "Filter High Xover",
+            "Filter Mid/High Xover",
             highRange,
             4000.0f,
             juce::AudioParameterFloatAttributes().withLabel ("Hz")));
@@ -475,6 +476,10 @@ void ReferenceMaxAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     refAnalysisBuffer.setSize (numChannels,
                                juce::jmax (1, samplesPerBlock),
                                false, true, true);
+                                // Declick envelope: 10 ms ramp, one step per sample.
+    sessionFadeStep = 1.0f / (0.010f * (float) juce::jmax (1.0, sampleRate));
+    sessionFade = 1.0f;
+    lastSoloedPhysical = -1;
 
     for (int i = 0; i < maxReferenceSlots; ++i)
         slots[(size_t) i]->setFollowMode (followParams[(size_t) i]->load() >= 0.5f);
@@ -613,6 +618,14 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (refHasAudio)
         {
+            // If the soloed physical slot just changed, restart the
+            // declick envelope from zero so the boundary is faded in.
+            if (soloPhysical != lastSoloedPhysical)
+            {
+                sessionFade = 0.0f;
+                lastSoloedPhysical = soloPhysical;
+            }
+
             if (soloRefSlot.isFollowMode() && dawPositionSeconds >= 0.0)
             {
                 const double offset = (double) offsetParams[(size_t) soloPhysical]->load();
@@ -637,6 +650,33 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             gainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (gainDb));
             gainSmoothed.applyGain (refAnalysisBuffer, n);
+
+            // Apply the declick envelope. The envelope advances once per
+            // sample and is shared across channels, so both L and R fade
+            // in together. Used to smooth the source-switch boundary and
+            // any gain jump that comes with it, over ~10 ms.
+            {
+                const float envStart = sessionFade;
+                const int   chans    = refAnalysisBuffer.getNumChannels();
+
+                for (int ch = 0; ch < chans; ++ch)
+                {
+                    auto* data = refAnalysisBuffer.getWritePointer (ch);
+                    float e = envStart;
+
+                    for (int i = 0; i < n; ++i)
+                    {
+                        data[i] *= e;
+
+                        if (e < 1.0f)
+                            e = juce::jmin (1.0f, e + sessionFadeStep);
+                    }
+                }
+
+                // Compute the envelope value at the end of the block,
+                // and remember it for next time.
+                sessionFade = juce::jmin (1.0f, envStart + sessionFadeStep * (float) n);
+            }
 
             refFilter.process (refAnalysisBuffer);
 
@@ -679,7 +719,6 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     outputMeter.pushSamples (buffer, 0, n);
     lufsMeter.pushSamples (buffer, 0, n);
 }
-
 bool ReferenceMaxAudioProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* ReferenceMaxAudioProcessor::createEditor()
@@ -692,7 +731,9 @@ void ReferenceMaxAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     auto state = apvts.copyState();
 
     for (int i = 0; i < maxReferenceSlots; ++i)
-        state.setProperty ("slotOrder_" + juce::String (i), slotOrder[i], nullptr);
+        state.setProperty ("slotOrder_" + juce::String (i),
+                           slotOrder[(size_t) i].load (std::memory_order_relaxed),
+                           nullptr);
 
     for (int i = 0; i < maxReferenceSlots; ++i)
     {
@@ -735,7 +776,7 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
             if (p < 0 || p >= maxReferenceSlots || orderRestored[p])
                 continue;
 
-            slotOrder[i] = p;
+            slotOrder[(size_t) i].store (p, std::memory_order_relaxed);
             orderRestored[p] = true;
             ++restoredCount;
         }
@@ -745,7 +786,7 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
             int nextFree = 0;
             for (int i = 0; i < maxReferenceSlots; ++i)
             {
-                if (orderRestored[slotOrder[i]])
+                if (orderRestored[slotOrder[(size_t) i].load (std::memory_order_relaxed)])
                     continue;
 
                 while (nextFree < maxReferenceSlots && orderRestored[nextFree])
@@ -754,7 +795,7 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
                 if (nextFree >= maxReferenceSlots)
                     break;
 
-                slotOrder[i] = nextFree;
+                slotOrder[(size_t) i].store (nextFree, std::memory_order_relaxed);
                 orderRestored[nextFree] = true;
                 ++nextFree;
             }

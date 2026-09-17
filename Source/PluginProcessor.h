@@ -101,7 +101,11 @@ private:
     juce::ThreadPool loadPool { 1 };
     std::array<std::unique_ptr<ReferenceSlot>, maxReferenceSlots> slots;
 
-    int slotOrder[maxReferenceSlots] { 0, 1, 2, 3, 4, 5, 6, 7 };
+    // Maps logical slot position (what the user sees) to physical slot
+    // index (position in `slots`). Written on the message thread only;
+    // read on the audio thread via physicalIndexFor(). Atomic so a
+    // concurrent read/write can't tear.
+    std::array<std::atomic<int>, maxReferenceSlots> slotOrder;
 
     std::atomic<float>* listenMode = nullptr;
     std::atomic<float>* soloSlot = nullptr;
@@ -133,6 +137,11 @@ private:
     LufsMeter dawLufsMeter;
 
     juce::AudioBuffer<float> refAnalysisBuffer;
+     // Short fade applied to the reference signal whenever the soloed
+    // slot changes, to avoid a click at the source-switch boundary.
+    float sessionFade = 1.0f;         // current envelope value, 0..1
+    float sessionFadeStep = 0.0f;     // per-sample increment (set in prepareToPlay)
+    int   lastSoloedPhysical = -1;    // which physical slot we were playing
 
     bool lastDawIsPlaying = true;
 

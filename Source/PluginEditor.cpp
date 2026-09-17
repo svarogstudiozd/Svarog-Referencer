@@ -267,6 +267,12 @@ void ReferenceMaxAudioProcessorEditor::parameterChanged (const juce::String& par
         }
         else if (parameterID == "num_visible_slots")
         {
+            // A slot was added or removed. The solo_slot parameter may
+            // or may not have changed value as a result, so we cannot
+            // rely on the solo_slot handler running. Re-call setSlot so
+            // the detail view notices when the physical slot behind
+            // the current logical index has changed, then refresh.
+            safe->detailView.setSlot (safe->processorRef.getSoloSlot());
             safe->slotGrid.refresh();
             safe->detailView.refresh();
             safe->updateResizeLimits();

@@ -135,13 +135,13 @@ ReferenceDetailView::~ReferenceDetailView()
     if (waveform != nullptr)
         removeChildComponent (waveform.get());
 
-    // Remove ourselves from every slot's change broadcaster, not just the
-    // current one. This is defensive: if we ever switch slots without
-    // detaching cleanly (or if the current slot's listener was never
-    // removed for any reason), iterating all slots guarantees no dangling
-    // listener.
-    for (int i = 0; i < ReferenceMaxAudioProcessor::maxReferenceSlots; ++i)
-        processor.getSlot (i).removeChangeListener (this);
+    // Remove ourselves from the one slot we are actually listening to.
+    // We track it directly (attachedSlot) rather than going through
+    // getSlot(currentLogicalIndex), because after a reorder that call
+    // may resolve to a different physical slot than the one we attached
+    // to.
+    if (attachedSlot != nullptr)
+        attachedSlot->removeChangeListener (this);
 }
 
 //==============================================================================
@@ -164,12 +164,19 @@ void ReferenceDetailView::setSlot (int logicalIndex)
     if (logicalIndex < 0 || logicalIndex >= visible)
         logicalIndex = 0;
 
-    if (logicalIndex == currentLogicalIndex && currentGainParam != nullptr)
+    const int newPhysical = processor.physicalIndexFor (logicalIndex);
+
+    // Re-attach if EITHER the logical index changed OR the physical slot
+    // behind it changed. The latter happens after a slot removal has
+    // re-mapped the remaining slots while the currently-viewed logical
+    // index still points at the same number.
+    if (logicalIndex == currentLogicalIndex
+        && newPhysical == currentPhysicalIndex
+        && currentGainParam != nullptr)
         return;
 
-    processor.getSlot (currentLogicalIndex).removeChangeListener (this);
-
-    currentLogicalIndex = logicalIndex;
+    currentLogicalIndex  = logicalIndex;
+    currentPhysicalIndex = newPhysical;
 
     cancelLearning();
 
@@ -184,7 +191,17 @@ void ReferenceDetailView::attachToSlot()
 
     auto& slot = processor.getSlot (currentLogicalIndex);
 
-    slot.addChangeListener (this);
+    // Swap change listeners: remove from whatever we were previously
+    // listening to (tracked directly) and attach to the new slot.
+    if (attachedSlot != nullptr && attachedSlot != &slot)
+        attachedSlot->removeChangeListener (this);
+
+    attachedSlot = &slot;
+    attachedSlot->addChangeListener (this);
+
+    // Keep our cached physical index in sync even if attachToSlot is
+    // called from somewhere other than setSlot.
+    currentPhysicalIndex = processor.physicalIndexFor (currentLogicalIndex);
 
     waveform = std::make_unique<WaveformView> (slot);
 
