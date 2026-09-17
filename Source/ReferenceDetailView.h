@@ -65,6 +65,10 @@ private:
     void pushGainToParameter (double newValueDb);
     void toggleFollow();
 
+    // Format a dB value as "±X.X dB". Shared by the two functions that
+    // write to gainValueLabel.
+    static juce::String formatGainDb (float valueDb);
+
     void onMatchButtonClicked();
     void startLearning();
     void cancelLearning();

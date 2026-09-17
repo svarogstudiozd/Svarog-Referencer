@@ -255,6 +255,16 @@ void ReferenceDetailView::updateReplaceButtonLabel()
     }
 }
 
+juce::String ReferenceDetailView::formatGainDb (float valueDb)
+{
+    juce::String num = juce::String (valueDb, 1);
+
+    if (! num.startsWithChar ('-') && ! num.startsWithChar ('+'))
+        num = "+" + num;
+
+    return num + " dB";
+}
+
 void ReferenceDetailView::updateGainFromParameter()
 {
     if (currentGainParam == nullptr)
@@ -265,11 +275,7 @@ void ReferenceDetailView::updateGainFromParameter()
 
     gainSlider.setValue ((double) valueDb, juce::dontSendNotification);
 
-    juce::String num = juce::String (valueDb, 1);
-    if (! num.startsWithChar ('-') && ! num.startsWithChar ('+'))
-        num = "+" + num;
-
-    gainValueLabel.setText (num + " dB", juce::dontSendNotification);
+    gainValueLabel.setText (formatGainDb (valueDb), juce::dontSendNotification);
 }
 
 void ReferenceDetailView::pushGainToParameter (double newValueDb)
@@ -284,11 +290,7 @@ void ReferenceDetailView::pushGainToParameter (double newValueDb)
     currentGainParam->setValueNotifyingHost (normalized);
     currentGainParam->endChangeGesture();
 
-    juce::String num = juce::String (newValueDb, 1);
-    if (! num.startsWithChar ('-') && ! num.startsWithChar ('+'))
-        num = "+" + num;
-
-    gainValueLabel.setText (num + " dB", juce::dontSendNotification);
+    gainValueLabel.setText (formatGainDb ((float) newValueDb), juce::dontSendNotification);
 }
 
 void ReferenceDetailView::updateFollowButton()
@@ -504,11 +506,7 @@ void ReferenceDetailView::updateMatchButtonText()
 
     const float appliedGainDb = target - refLufs;
 
-    juce::String num = juce::String (appliedGainDb, 1);
-    if (! num.startsWithChar ('-') && ! num.startsWithChar ('+'))
-        num = "+" + num;
-
-    matchButton.setButtonText ("Match " + num + " dB");
+    matchButton.setButtonText ("Match " + formatGainDb (appliedGainDb));
 }
 
 void ReferenceDetailView::updateMatchButtonPulse()
