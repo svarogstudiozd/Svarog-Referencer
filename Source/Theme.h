@@ -42,3 +42,16 @@ namespace Theme
     inline const juce::Colour dawTrace      { 0xffb0b0b0 };   // light grey
     inline const juce::Colour refTrace      { 0xffa83838 };   // dark red
 }
+
+/**
+    Shared UI timing constants.
+
+    Everything in the plugin that runs on a timer is driven at the same
+    frame rate, so time-based coefficients (ballistics, smoothing) can be
+    expressed consistently in terms of this one value.
+*/
+namespace Display
+{
+    static constexpr float fps          = 30.0f;
+    static constexpr float blockSeconds = 1.0f / fps;
+}

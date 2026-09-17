@@ -31,7 +31,7 @@ void LevelMeterComponent::timerCallback()
 
     constexpr float attackMs  = 8.0f;
     constexpr float releaseMs = 250.0f;
-    constexpr float blockSeconds = 1.0f / 30.0f;
+    const float blockSeconds = Display::blockSeconds;
 
     const float attackCoeff  = std::exp (-blockSeconds / (attackMs  * 0.001f));
     const float releaseCoeff = std::exp (-blockSeconds / (releaseMs * 0.001f));

@@ -65,8 +65,6 @@ target_sources(SvarogReferencer
         Source/LufsMeterComponent.h
         Source/DraggableValueBox.cpp
         Source/DraggableValueBox.h
-        Source/OffsetBox.cpp
-        Source/OffsetBox.h
         Source/Theme.h
 )
 

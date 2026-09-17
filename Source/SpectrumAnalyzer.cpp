@@ -1,4 +1,5 @@
 #include "SpectrumAnalyzer.h"
+#include "Theme.h"
 
 SpectrumAnalyzer::SpectrumAnalyzer()
 {
@@ -122,13 +123,13 @@ void SpectrumAnalyzer::computeSpectrum()
     // Slow trace ballistics - the trend line. Asymmetric so transient
     // hits (e.g. a snare's 200 Hz energy) still register at nearly their
     // true peak level, while the trace decays slowly afterwards.
-    constexpr float slowAttackMs  = 100.0f;
+    constexpr float slowAttackMs  = 150.0f;
     constexpr float slowReleaseMs = 800.0f;
 
     // Below this dB level, a trace is considered to be "at the floor".
     constexpr float floorSnapDb = -119.0f;
 
-    const float blockSeconds = 1.0f / 30.0f;
+    const float blockSeconds = Display::blockSeconds;
     const float attackCoeff      = std::exp (-blockSeconds / (attackMs      * 0.001f));
     const float releaseCoeff     = std::exp (-blockSeconds / (releaseMs     * 0.001f));
     const float slowAttackCoeff  = std::exp (-blockSeconds / (slowAttackMs  * 0.001f));
