@@ -53,9 +53,6 @@ ReferenceMaxAudioProcessor::ReferenceMaxAudioProcessor()
         apvts.addParameterListener ("follow_offset_" + juce::String (i + 1), this);
     }
 
-    // Start with one empty reference slot so the detail view has something
-    // to display on a fresh open. Session restore will overwrite this via
-    // num_visible_slots.
     addSlot();
 }
 
@@ -476,16 +473,29 @@ void ReferenceMaxAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     refAnalysisBuffer.setSize (numChannels,
                                juce::jmax (1, samplesPerBlock),
                                false, true, true);
-                                // Declick envelope: 10 ms ramp, one step per sample.
-    sessionFadeStep = 1.0f / (0.010f * (float) juce::jmax (1.0, sampleRate));
-    sessionFade = 1.0f;
-    lastSoloedPhysical = -1;
+
+    slowStep = 1.0f / (0.020f * (float) juce::jmax (1.0, sampleRate));   // 20 ms
+    medStep  = 1.0f / (0.005f * (float) juce::jmax (1.0, sampleRate));   // 5 ms
+
+    declickPhase  = DeclickPhase::idle;
+    declickReason = DeclickReason::None;
+    outFade       = 1.0f;
+    pendingModeChange = -1;
+
+    effectiveIsReferenceMode = (listenMode->load() >= 0.5f);
+
+    refSlotFade     = 1.0f;
+    refSlotFadeStep = slowStep;
+
+    lastDawIsPlaying      = true;
+    lastDawPositionSeen   = -1.0;
+    lastListenModeIndex   = (int) listenMode->load();
+    lastRefSourcePhysical = -1;
+
+    lastKnownDawSeconds.store (-1.0);
 
     for (int i = 0; i < maxReferenceSlots; ++i)
         slots[(size_t) i]->setFollowMode (followParams[(size_t) i]->load() >= 0.5f);
-
-    lastDawIsPlaying = true;
-    lastKnownDawSeconds.store (-1.0);
 
     syncPlaybackState();
 }
@@ -566,7 +576,7 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const bool monoOn = monoParam->load() >= 0.5f;
     const bool swapOn = swapLRParam->load() >= 0.5f;
 
-    const bool isInReferenceMode = isListeningToReference();
+    const bool isInReferenceMode = effectiveIsReferenceMode;
     const int  visible = getNumVisibleSlots();
 
     bool dawIsPlaying = true;
@@ -588,10 +598,49 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (dawPositionSeconds >= 0.0)
         lastKnownDawSeconds.store (dawPositionSeconds);
 
-    if (dawIsPlaying != lastDawIsPlaying)
+    // Mode switch: deferred flip, slow fade both ways.
     {
-        lastDawIsPlaying = dawIsPlaying;
-        syncPlaybackState (dawIsPlaying);
+        const int listenModeIndex = (int) listenMode->load();
+
+        if (listenModeIndex != lastListenModeIndex)
+        {
+            lastListenModeIndex = listenModeIndex;
+            requestModeSwitch (listenModeIndex);
+        }
+    }
+
+    // Transport toggle: slow fade both ways.
+    {
+        if (dawIsPlaying != lastDawIsPlaying)
+        {
+            lastDawIsPlaying = dawIsPlaying;
+            syncPlaybackState (dawIsPlaying);
+            requestTransportFade (false);
+        }
+    }
+
+    // Transport jump: medium fade out, slow fade in.
+    {
+        if (dawIsPlaying && dawPositionSeconds >= 0.0)
+        {
+            if (lastDawPositionSeen >= 0.0)
+            {
+                const double expectedNext = lastDawPositionSeen
+                                          + (double) buffer.getNumSamples()
+                                            / juce::jmax (1.0, getSampleRate());
+
+                const double drift = std::abs (dawPositionSeconds - expectedNext);
+
+                if (drift > 0.050)
+                    requestTransportFade (true);
+            }
+
+            lastDawPositionSeen = dawPositionSeconds;
+        }
+        else
+        {
+            lastDawPositionSeen = -1.0;
+        }
     }
 
     const int n = buffer.getNumSamples();
@@ -618,12 +667,10 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         if (refHasAudio)
         {
-            // If the soloed physical slot just changed, restart the
-            // declick envelope from zero so the boundary is faded in.
-            if (soloPhysical != lastSoloedPhysical)
+            if (soloPhysical != lastRefSourcePhysical)
             {
-                sessionFade = 0.0f;
-                lastSoloedPhysical = soloPhysical;
+                refSlotFade = 0.0f;
+                lastRefSourcePhysical = soloPhysical;
             }
 
             if (soloRefSlot.isFollowMode() && dawPositionSeconds >= 0.0)
@@ -651,31 +698,20 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             gainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (gainDb));
             gainSmoothed.applyGain (refAnalysisBuffer, n);
 
-            // Apply the declick envelope. The envelope advances once per
-            // sample and is shared across channels, so both L and R fade
-            // in together. Used to smooth the source-switch boundary and
-            // any gain jump that comes with it, over ~10 ms.
             {
-                const float envStart = sessionFade;
-                const int   chans    = refAnalysisBuffer.getNumChannels();
+                const int chans = refAnalysisBuffer.getNumChannels();
+                float env = refSlotFade;
 
-                for (int ch = 0; ch < chans; ++ch)
+                for (int s = 0; s < n; ++s)
                 {
-                    auto* data = refAnalysisBuffer.getWritePointer (ch);
-                    float e = envStart;
+                    for (int ch = 0; ch < chans; ++ch)
+                        refAnalysisBuffer.getWritePointer (ch)[s] *= env;
 
-                    for (int i = 0; i < n; ++i)
-                    {
-                        data[i] *= e;
-
-                        if (e < 1.0f)
-                            e = juce::jmin (1.0f, e + sessionFadeStep);
-                    }
+                    if (env < 1.0f)
+                        env = juce::jmin (1.0f, env + refSlotFadeStep);
                 }
 
-                // Compute the envelope value at the end of the block,
-                // and remember it for next time.
-                sessionFade = juce::jmin (1.0f, envStart + sessionFadeStep * (float) n);
+                refSlotFade = env;
             }
 
             refFilter.process (refAnalysisBuffer);
@@ -687,38 +723,30 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
-    if (! isInReferenceMode)
-    {
-        outputMeter.pushSamples (buffer, 0, n);
-        lufsMeter.pushSamples (buffer, 0, n);
-        return;
-    }
-
-    if (! dawIsPlaying)
+    if (isInReferenceMode)
     {
         buffer.clear();
-        outputMeter.pushSamples (buffer, 0, n);
-        lufsMeter.pushSamples (buffer, 0, n);
-        return;
-    }
 
-    buffer.clear();
-
-    if (refHasAudio && refAnalysisBuffer.getNumSamples() >= n)
-    {
-        const int outChans = buffer.getNumChannels();
-        const int srcChans = refAnalysisBuffer.getNumChannels();
-
-        for (int ch = 0; ch < outChans; ++ch)
+        if (dawIsPlaying && refHasAudio
+            && refAnalysisBuffer.getNumSamples() >= n)
         {
-            const int srcCh = juce::jmin (ch, srcChans - 1);
-            buffer.copyFrom (ch, 0, refAnalysisBuffer, srcCh, 0, n);
+            const int outChans = buffer.getNumChannels();
+            const int srcChans = refAnalysisBuffer.getNumChannels();
+
+            for (int ch = 0; ch < outChans; ++ch)
+            {
+                const int srcCh = juce::jmin (ch, srcChans - 1);
+                buffer.copyFrom (ch, 0, refAnalysisBuffer, srcCh, 0, n);
+            }
         }
     }
+
+    applyOutputDeclick (buffer, n);
 
     outputMeter.pushSamples (buffer, 0, n);
     lufsMeter.pushSamples (buffer, 0, n);
 }
+
 bool ReferenceMaxAudioProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* ReferenceMaxAudioProcessor::createEditor()

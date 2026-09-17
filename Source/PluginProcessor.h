@@ -58,11 +58,6 @@ public:
     void addSlot();
     void removeSlot (int logicalIndex);
 
-    // Clear a slot and reset all of its per-reference parameters (gain,
-    // follow, offset, match). Does NOT touch the global match target.
-    // Call this before loadFileAsync() when the user is replacing a
-    // reference with a new file (Replace button or file drop). Do NOT
-    // call it during session restore.
     void resetSlotForNewFile (int logicalIndex);
 
     void syncPlaybackState();
@@ -74,14 +69,10 @@ public:
     LufsMeter& getLufsMeter() noexcept { return lufsMeter; }
     LufsMeter& getDawLufsMeter() noexcept { return dawLufsMeter; }
 
-    // ---- Match target ----------------------------------------------------
-
     float getMatchTargetLufs() const noexcept;
     void setMatchTargetLufs (float lufs);
     float captureMatchTargetFromDaw();
     void clearMatchTarget();
-
-    // ---- DAW transport position cache -----------------------------------
 
     double getLastKnownDawSeconds() const noexcept
     {
@@ -101,10 +92,6 @@ private:
     juce::ThreadPool loadPool { 1 };
     std::array<std::unique_ptr<ReferenceSlot>, maxReferenceSlots> slots;
 
-    // Maps logical slot position (what the user sees) to physical slot
-    // index (position in `slots`). Written on the message thread only;
-    // read on the audio thread via physicalIndexFor(). Atomic so a
-    // concurrent read/write can't tear.
     std::array<std::atomic<int>, maxReferenceSlots> slotOrder;
 
     std::atomic<float>* listenMode = nullptr;
@@ -137,13 +124,42 @@ private:
     LufsMeter dawLufsMeter;
 
     juce::AudioBuffer<float> refAnalysisBuffer;
-     // Short fade applied to the reference signal whenever the soloed
-    // slot changes, to avoid a click at the source-switch boundary.
-    float sessionFade = 1.0f;         // current envelope value, 0..1
-    float sessionFadeStep = 0.0f;     // per-sample increment (set in prepareToPlay)
-    int   lastSoloedPhysical = -1;    // which physical slot we were playing
 
-    bool lastDawIsPlaying = true;
+    // ------------------------------------------------------------------
+    // Output declick state machine
+    //
+    // Reasons:
+    //   ModeSwitch       - 20 ms out, 20 ms in. Both slow, so a source
+    //                      change is masked by an inaudible dip.
+    //   TransportToggle  - 20 ms out, 20 ms in. Stop is fading into
+    //                      silence; play is fading from silence.
+    //                      No reason to be fast.
+    //   TransportJump    - 5 ms out, 20 ms in. Fast out to reduce the
+    //                      click of the new content arriving; slow in
+    //                      so the new position fades up gently.
+    // ------------------------------------------------------------------
+    enum class DeclickReason { None, ModeSwitch, TransportToggle, TransportJump };
+
+    enum class DeclickPhase { idle, fadingOut, fadingIn };
+
+    DeclickPhase declickPhase  = DeclickPhase::idle;
+    DeclickReason declickReason = DeclickReason::None;
+    float        outFade       = 1.0f;
+
+    // Per-sample ramp steps, set in prepareToPlay.
+    float slowStep = 0.0f;   // 20 ms
+    float medStep  = 0.0f;   // 5 ms
+
+    int  pendingModeChange        = -1;
+    bool effectiveIsReferenceMode = false;
+
+    bool   lastDawIsPlaying        = true;
+    double lastDawPositionSeen     = -1.0;
+    int    lastListenModeIndex     = 0;
+    int    lastRefSourcePhysical   = -1;
+
+    float refSlotFade     = 1.0f;
+    float refSlotFadeStep = 0.0f;
 
     std::atomic<double> lastKnownDawSeconds { -1.0 };
 
@@ -152,6 +168,108 @@ private:
 
     void resetSlotOrderToIdentity() noexcept;
     void clampSoloSlotToVisible();
+
+    void startDeclick (DeclickReason reason) noexcept
+    {
+        if (declickPhase != DeclickPhase::idle)
+        {
+            // Upgrade priority of an in-flight fade: a jump can
+            // override a mode switch or a toggle.
+            if (reason == DeclickReason::TransportJump
+                && declickReason != DeclickReason::TransportJump
+                && declickPhase == DeclickPhase::fadingOut)
+            {
+                declickReason = DeclickReason::TransportJump;
+            }
+            return;
+        }
+
+        declickReason = reason;
+        declickPhase  = DeclickPhase::fadingOut;
+        outFade       = 1.0f;
+    }
+
+    void requestModeSwitch (int newMode) noexcept
+    {
+        pendingModeChange = newMode;
+
+        if (declickPhase == DeclickPhase::idle)
+            startDeclick (DeclickReason::ModeSwitch);
+    }
+
+    void requestTransportFade (bool wasJump) noexcept
+    {
+        if (declickPhase == DeclickPhase::idle)
+            startDeclick (wasJump ? DeclickReason::TransportJump
+                                  : DeclickReason::TransportToggle);
+    }
+
+    // Pick the per-sample step for the current phase and reason.
+    float currentStep() const noexcept
+    {
+        if (declickPhase == DeclickPhase::fadingIn)
+            return slowStep;   // always slow fade-in
+
+        // Fading out:
+        switch (declickReason)
+        {
+            case DeclickReason::ModeSwitch:
+            case DeclickReason::TransportToggle:
+                return slowStep;
+            case DeclickReason::TransportJump:
+                return medStep;
+            case DeclickReason::None:
+            default:
+                return slowStep;
+        }
+    }
+
+    void applyOutputDeclick (juce::AudioBuffer<float>& buffer, int n) noexcept
+    {
+        if (n <= 0)
+            return;
+
+        if (declickPhase == DeclickPhase::idle)
+            return;
+
+        const bool isFadingOut = (declickPhase == DeclickPhase::fadingOut);
+        const int  chans = buffer.getNumChannels();
+        const float step = currentStep();
+
+        float env = outFade;
+
+        for (int s = 0; s < n; ++s)
+        {
+            for (int ch = 0; ch < chans; ++ch)
+                buffer.getWritePointer (ch)[s] *= env;
+
+            if (isFadingOut)
+                env = juce::jmax (0.0f, env - step);
+            else
+                env = juce::jmin (1.0f, env + step);
+        }
+
+        outFade = env;
+
+        if (isFadingOut && outFade <= 1.0e-6f)
+        {
+            outFade = 0.0f;
+
+            if (pendingModeChange >= 0)
+            {
+                effectiveIsReferenceMode = (pendingModeChange == 1);
+                pendingModeChange = -1;
+            }
+
+            declickPhase = DeclickPhase::fadingIn;
+        }
+        else if (! isFadingOut && outFade >= 1.0f - 1.0e-6f)
+        {
+            outFade       = 1.0f;
+            declickPhase  = DeclickPhase::idle;
+            declickReason = DeclickReason::None;
+        }
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferenceMaxAudioProcessor)
 };
