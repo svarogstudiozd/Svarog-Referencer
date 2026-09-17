@@ -35,27 +35,13 @@ public:
     void refresh();
 
 private:
-    class MatchButton : public juce::TextButton
+    // A TextButton that also fires a callback on double-click. Used by the
+    // Match and Offset buttons, which have single-click and double-click
+    // actions with different meanings.
+    class DoubleClickableButton : public juce::TextButton
     {
     public:
-        std::function<void()> onDoubleClick;
-
-        void mouseDoubleClick (const juce::MouseEvent& e) override
-        {
-            juce::ignoreUnused (e);
-
-            if (onDoubleClick != nullptr)
-                onDoubleClick();
-        }
-    };
-
-    class OffsetButton : public juce::TextButton
-    {
-    public:
-        explicit OffsetButton (const juce::String& buttonName)
-            : juce::TextButton (buttonName)
-        {
-        }
+        using juce::TextButton::TextButton;
 
         std::function<void()> onDoubleClick;
 
@@ -102,8 +88,8 @@ private:
     juce::TextButton replaceButton { "Replace" };
     juce::TextButton loopButton { "Loop" };
     juce::TextButton followButton { "Follow" };
-    MatchButton  matchButton;
-    OffsetButton offsetButton { "Offset" };
+    DoubleClickableButton matchButton;
+    DoubleClickableButton offsetButton { "Offset" };
 
     juce::Slider gainSlider;
     juce::Label  gainLabel;

@@ -1,5 +1,6 @@
 #include "WaveformView.h"
 #include "Theme.h"
+#include "TimeFormat.h"
 
 WaveformView::WaveformView (ReferenceSlot& slotToFollow)
     : slot (slotToFollow)
@@ -187,21 +188,6 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     g.setColour (Theme::textSecondary);
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
 
-    auto formatTime = [] (double seconds) -> juce::String
-    {
-        if (seconds < 0.0) seconds = 0.0;
-        const int totalSeconds = (int) seconds;
-        const int minutes = totalSeconds / 60;
-        const int secs    = totalSeconds % 60;
-
-        if (minutes < 60)
-            return juce::String::formatted ("%d:%02d", minutes, secs);
-
-        const int hours = minutes / 60;
-        const int mins  = minutes % 60;
-        return juce::String::formatted ("%d:%02d:%02d", hours, mins, secs);
-    };
-
     const int labelBoxWidth = 60;
     const int labelBoxHeight = (int) (rulerBounds.getHeight() - 8.0f + 2);
 
@@ -261,7 +247,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
 
         if (isMajorTick)
         {
-            const juce::String label = formatTime (currentTime);
+            const juce::String label = TimeFormat::mmSs (currentTime);
 
             g.setColour (Theme::textPrimary);
             g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
@@ -285,7 +271,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     if (tickCount > 0 && std::fmod (length, intervalSeconds) > 0.001)
     {
         const double x = rulerBounds.getX() + totalWidth;
-        const juce::String label = formatTime (length);
+        const juce::String label = TimeFormat::mmSs (length);
 
         g.setColour (Theme::textPrimary);
         g.setFont (juce::FontOptions (12.0f, juce::Font::bold));

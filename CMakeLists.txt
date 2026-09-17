@@ -49,6 +49,7 @@ target_sources(SvarogReferencer
         Source/WaveformView.cpp
         Source/WaveformView.h
         Source/AudioFileSupport.h
+        Source/TimeFormat.h
         Source/FilterProcessor.h
         Source/FilterBar.cpp
         Source/FilterBar.h

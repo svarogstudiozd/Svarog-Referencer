@@ -1,5 +1,6 @@
 #include "ReferenceDetailView.h"
 #include "Theme.h"
+#include "TimeFormat.h"
 
 ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     : processor (p)
@@ -830,64 +831,6 @@ void ReferenceDetailView::timerCallback()
     }
 }
 
-static juce::String formatDuration (double seconds)
-{
-    if (seconds < 0.0) seconds = 0.0;
-
-    const int minutes = (int) (seconds / 60.0);
-    const int secs    = (int) std::fmod (seconds, 60.0);
-
-    if (minutes < 60)
-    {
-        return juce::String::formatted ("%d:%02d", minutes, secs);
-    }
-    else
-    {
-        const int hours = minutes / 60;
-        const int mins  = minutes % 60;
-        return juce::String::formatted ("%d:%02d:%02d", hours, mins, secs);
-    }
-}
-
-// Same as formatDuration but with one decimal place of seconds, e.g.
-// "1:26.2" or "1:02:05.7". Used for the loop in/out display where
-// sub-second precision matters while fine-tuning.
-static juce::String formatDurationFine (double seconds)
-{
-    if (seconds < 0.0) seconds = 0.0;
-
-    const int totalSeconds = (int) seconds;
-    const double frac = seconds - (double) totalSeconds;
-
-    int tenths = (int) std::round (frac * 10.0);
-    int secs   = totalSeconds % 60;
-    int minutes = totalSeconds / 60;
-
-    // Rounding tenths can push us over to the next second.
-    if (tenths >= 10)
-    {
-        tenths = 0;
-        secs += 1;
-
-        if (secs >= 60)
-        {
-            secs = 0;
-            minutes += 1;
-        }
-    }
-
-    if (minutes < 60)
-    {
-        return juce::String::formatted ("%d:%02d.%d", minutes, secs, tenths);
-    }
-    else
-    {
-        const int hours = minutes / 60;
-        const int mins  = minutes % 60;
-        return juce::String::formatted ("%d:%02d:%02d.%d", hours, mins, secs, tenths);
-    }
-}
-
 void ReferenceDetailView::updateTimeDisplay()
 {
     if (isNoSlotMode())
@@ -913,7 +856,7 @@ void ReferenceDetailView::updateTimeDisplay()
     }
 
     const double currentTime = slot.getNormalizedPosition() * length;
-    playheadTimeLabel.setText (formatDuration (currentTime),
+    playheadTimeLabel.setText (TimeFormat::mmSs (currentTime),
                                juce::dontSendNotification);
 
     // Use the in-progress preview values if a drag is active, otherwise
@@ -928,13 +871,13 @@ void ReferenceDetailView::updateTimeDisplay()
         const double loopStart = (double) startNorm * length;
         const double loopEnd   = (double) endNorm   * length;
 
-        statusText = "Loop In: " + formatDurationFine (loopStart)
-                   + "   Loop Out: " + formatDurationFine (loopEnd);
+        statusText = "Loop In: " + TimeFormat::mmSsTenths (loopStart)
+                   + "   Loop Out: " + TimeFormat::mmSsTenths (loopEnd);
         statusTextColour = Theme::greyLight;
     }
     else
     {
-        statusText = "Total: " + formatDuration (length);
+        statusText = "Total: " + TimeFormat::mmSs (length);
         statusTextColour = Theme::textPrimary;
     }
 }
