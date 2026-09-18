@@ -26,7 +26,7 @@ juce_add_plugin(SvarogReferencer
     COPY_PLUGIN_AFTER_BUILD TRUE
     PLUGIN_MANUFACTURER_CODE SvrG
     PLUGIN_CODE Sref
-    FORMATS AU VST3 Standalone
+    FORMATS AU VST3
     PRODUCT_NAME "Svarog Referencer"
 )
 
