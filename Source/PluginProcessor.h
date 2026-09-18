@@ -125,19 +125,12 @@ private:
 
     juce::AudioBuffer<float> refAnalysisBuffer;
 
-    // ------------------------------------------------------------------
-    // Output declick state machine
-    //
-    // Reasons:
-    //   ModeSwitch       - 20 ms out, 20 ms in. Both slow, so a source
-    //                      change is masked by an inaudible dip.
-    //   TransportToggle  - 20 ms out, 20 ms in. Stop is fading into
-    //                      silence; play is fading from silence.
-    //                      No reason to be fast.
-    //   TransportJump    - 5 ms out, 20 ms in. Fast out to reduce the
-    //                      click of the new content arriving; slow in
-    //                      so the new position fades up gently.
-    // ------------------------------------------------------------------
+    // One block of input delay. Placed *before* the filters so the
+    // filters never see a transport jump as a step input. Reported to
+    // the host as latency so PDC compensates automatically.
+    juce::AudioBuffer<float> inputDelayBuffer;
+    bool inputDelayPrimed = false;
+
     enum class DeclickReason { None, ModeSwitch, TransportToggle, TransportJump };
 
     enum class DeclickPhase { idle, fadingOut, fadingIn };
@@ -146,11 +139,16 @@ private:
     DeclickReason declickReason = DeclickReason::None;
     float        outFade       = 1.0f;
 
-    // Per-sample ramp steps, set in prepareToPlay.
+    // After a fade-out completes and the pending state change has been
+    // applied, hold the envelope at zero for one block so the change is
+    // heard at exactly envelope = 0.
+    bool declickHoldFadeIn = false;
+
     float slowStep = 0.0f;   // 20 ms
-    float medStep  = 0.0f;   // 5 ms
+    float medStep  = 0.0f;   // one block
 
     int  pendingModeChange        = -1;
+    bool pendingTransportStop     = false;
     bool effectiveIsReferenceMode = false;
 
     bool   lastDawIsPlaying        = true;
@@ -173,8 +171,6 @@ private:
     {
         if (declickPhase != DeclickPhase::idle)
         {
-            // Upgrade priority of an in-flight fade: a jump can
-            // override a mode switch or a toggle.
             if (reason == DeclickReason::TransportJump
                 && declickReason != DeclickReason::TransportJump
                 && declickPhase == DeclickPhase::fadingOut)
@@ -204,13 +200,11 @@ private:
                                   : DeclickReason::TransportToggle);
     }
 
-    // Pick the per-sample step for the current phase and reason.
     float currentStep() const noexcept
     {
         if (declickPhase == DeclickPhase::fadingIn)
-            return slowStep;   // always slow fade-in
+            return slowStep;
 
-        // Fading out:
         switch (declickReason)
         {
             case DeclickReason::ModeSwitch:
@@ -234,8 +228,15 @@ private:
 
         const bool isFadingOut = (declickPhase == DeclickPhase::fadingOut);
         const int  chans = buffer.getNumChannels();
-        const float step = currentStep();
 
+        if (! isFadingOut && declickHoldFadeIn)
+        {
+            buffer.clear();
+            declickHoldFadeIn = false;
+            return;
+        }
+
+        const float step = currentStep();
         float env = outFade;
 
         for (int s = 0; s < n; ++s)
@@ -261,13 +262,38 @@ private:
                 pendingModeChange = -1;
             }
 
-            declickPhase = DeclickPhase::fadingIn;
+            if (pendingTransportStop)
+            {
+                pendingTransportStop = false;
+                syncPlaybackState (false);
+            }
+
+            declickPhase      = DeclickPhase::fadingIn;
+            declickHoldFadeIn = true;
         }
         else if (! isFadingOut && outFade >= 1.0f - 1.0e-6f)
         {
             outFade       = 1.0f;
             declickPhase  = DeclickPhase::idle;
             declickReason = DeclickReason::None;
+        }
+    }
+
+    void swapInputWithDelayBuffer (juce::AudioBuffer<float>& buffer, int n) noexcept
+    {
+        if (inputDelayBuffer.getNumSamples() < n)
+            return;
+
+        const int chans = juce::jmin (buffer.getNumChannels(),
+                                      inputDelayBuffer.getNumChannels());
+
+        for (int ch = 0; ch < chans; ++ch)
+        {
+            auto* b = buffer.getWritePointer (ch);
+            auto* d = inputDelayBuffer.getWritePointer (ch);
+
+            for (int s = 0; s < n; ++s)
+                std::swap (b[s], d[s]);
         }
     }
 

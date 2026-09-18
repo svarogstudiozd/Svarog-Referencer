@@ -474,13 +474,27 @@ void ReferenceMaxAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
                                juce::jmax (1, samplesPerBlock),
                                false, true, true);
 
-    slowStep = 1.0f / (0.020f * (float) juce::jmax (1.0, sampleRate));   // 20 ms
-    medStep  = 1.0f / (0.005f * (float) juce::jmax (1.0, sampleRate));   // 5 ms
+    inputDelayBuffer.setSize (numChannels,
+                              juce::jmax (1, samplesPerBlock),
+                              false, true, true);
+    inputDelayBuffer.clear();
+    inputDelayPrimed = false;
 
-    declickPhase  = DeclickPhase::idle;
-    declickReason = DeclickReason::None;
-    outFade       = 1.0f;
-    pendingModeChange = -1;
+    setLatencySamples (samplesPerBlock);
+
+    slowStep = 1.0f / (0.020f * (float) juce::jmax (1.0, sampleRate));   // 20 ms
+
+    // The transport-jump fade-out must complete within one block of
+    // audio: that is the headroom the one-block input delay gives us.
+    // Derive the step from the block size rather than a fixed time.
+    medStep  = 1.0f / (float) juce::jmax (1, samplesPerBlock);
+
+    declickPhase      = DeclickPhase::idle;
+    declickReason     = DeclickReason::None;
+    declickHoldFadeIn = false;
+    outFade           = 1.0f;
+    pendingModeChange    = -1;
+    pendingTransportStop = false;
 
     effectiveIsReferenceMode = (listenMode->load() >= 0.5f);
 
@@ -609,17 +623,27 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
-    // Transport toggle: slow fade both ways.
+    // Transport toggle: only declick on stop, never on start.
     {
         if (dawIsPlaying != lastDawIsPlaying)
         {
             lastDawIsPlaying = dawIsPlaying;
-            syncPlaybackState (dawIsPlaying);
-            requestTransportFade (false);
+
+            if (! dawIsPlaying)
+            {
+                pendingTransportStop = true;
+                requestTransportFade (false);
+            }
+            else
+            {
+                syncPlaybackState (true);
+            }
         }
     }
 
-    // Transport jump: medium fade out, slow fade in.
+    // Transport jump: detect from the host's position report, fade out
+    // the block *currently in the input delay buffer* (which is the
+    // previous block's audio, continuous with what came before).
     {
         if (dawIsPlaying && dawPositionSeconds >= 0.0)
         {
@@ -646,6 +670,34 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const int n = buffer.getNumSamples();
     if (n <= 0)
         return;
+
+    // --- One-block input delay ------------------------------------------
+    //
+    // Swap the freshly-received input with the delay buffer BEFORE any
+    // processing. `buffer` now holds the previous block's input, which
+    // we will process and emit. The current input is stored for next
+    // call. This means the filters never see a transport jump as a
+    // step input: they always see audio that is continuous with what
+    // came before.
+
+    if (inputDelayBuffer.getNumSamples() >= n)
+    {
+        if (inputDelayPrimed)
+        {
+            swapInputWithDelayBuffer (buffer, n);
+        }
+        else
+        {
+            const int chans = juce::jmin (buffer.getNumChannels(),
+                                          inputDelayBuffer.getNumChannels());
+
+            for (int ch = 0; ch < chans; ++ch)
+                inputDelayBuffer.copyFrom (ch, 0, buffer, ch, 0, n);
+
+            buffer.clear();
+            inputDelayPrimed = true;
+        }
+    }
 
     dawFilter.process (buffer);
 
@@ -723,11 +775,13 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    const bool effectivelyPlaying = dawIsPlaying || pendingTransportStop;
+
     if (isInReferenceMode)
     {
         buffer.clear();
 
-        if (dawIsPlaying && refHasAudio
+        if (effectivelyPlaying && refHasAudio
             && refAnalysisBuffer.getNumSamples() >= n)
         {
             const int outChans = buffer.getNumChannels();
@@ -745,6 +799,7 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     outputMeter.pushSamples (buffer, 0, n);
     lufsMeter.pushSamples (buffer, 0, n);
+
 }
 
 bool ReferenceMaxAudioProcessor::hasEditor() const { return true; }
