@@ -383,8 +383,6 @@ void ReferenceSlot::getNextAudioBlock (
     {
         auto currentPosition = transport.getCurrentPosition();
 
-        // Jump back to loop start if the playhead is before the loop
-        // (seek landed before loopStart) or after the loop end.
         if (currentPosition < loopStart || currentPosition >= loopEnd)
         {
             transport.setPosition (loopStart);

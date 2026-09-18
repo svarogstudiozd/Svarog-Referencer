@@ -28,13 +28,6 @@ jobs:
           path: build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3
           if-no-files-found: error
 
-      - name: Upload Windows Standalone
-        uses: actions/upload-artifact@v4
-        with:
-          name: SvarogReferencer-Windows-Standalone
-          path: build/SvarogReferencer_artefacts/Release/Standalone/Svarog Referencer.exe
-          if-no-files-found: error
-
   build-macos:
     runs-on: macos-latest
 
@@ -56,15 +49,12 @@ jobs:
           # Create staging directory structure mirroring the install targets
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
-          mkdir -p pkg_root/Applications
 
           # Copy the built bundles into the staging directory
           cp -R "build/SvarogReferencer_artefacts/Release/AU/Svarog Referencer.component" \
                 "pkg_root/Library/Audio/Plug-Ins/Components/"
           cp -R "build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3" \
                 "pkg_root/Library/Audio/Plug-Ins/VST3/"
-          cp -R "build/SvarogReferencer_artefacts/Release/Standalone/Svarog Referencer.app" \
-                "pkg_root/Applications/"
 
           # Build the .pkg installer, installing the staged tree at /
           pkgbuild --root pkg_root \
