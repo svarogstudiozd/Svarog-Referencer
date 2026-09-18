@@ -4,6 +4,8 @@ A mixing and mastering reference tool for macOS and Windows. Load reference trac
 
 Built/vibe coded with JUCE as a personal project. Shared because it might be useful to someone else.
 
+![Svarog Referencer](assets/screenshot.png)
+
 Status
 v0.1 — early, unsigned
 
