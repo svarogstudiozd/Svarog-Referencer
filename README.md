@@ -1,32 +1,107 @@
-# Reference Max
+Svarog Referencer
 
-A JUCE mastering reference plugin (AU, VST3, Standalone) built with CMake.
+A mixing and mastering reference tool for macOS and Windows. Load reference tracks, A/B them against your mix, and use the built-in filters, LUFS meter and spectrum analyser to hear what you need to hear.
 
-Load up to four WAV/MP3 reference tracks, A/B them against the incoming DAW audio, and line up playback from an interactive waveform playhead.
+Built/vibe coded with JUCE as a personal project. Shared because it might be useful to someone else.
 
-## Features
+Status
+v0.1 — early, unsigned
 
-- **Audio file loader** — drag-and-drop or Load for up to 4 references. Files are decoded on a background thread; `AudioTransportSource` uses a read-ahead `TimeSliceThread` so the audio callback never opens files.
-- **Transport & playhead** — per-track `AudioThumbnail` waveform. Drag the playhead (0–100%) to seek. Solo selects which reference plays.
-- **Gain & A/B** — per-track dB sliders (−24 dB to +12 dB) applied with `juce::Decibels::decibelsToGain`. **A DAW** passes host audio; **B Reference** plays the soloed file.
+Formats: AU, VST3 (macOS), VST3 (Windows)
 
-## Requirements
+Tested with: Logic Pro.
 
-- CMake 3.22+
-- A C++20 compiler (Xcode on macOS)
-- Git (JUCE 9.0.1 is fetched on first configure)
+What it does:
 
-## Build
+Load up to 8 reference tracks and switch between them instantly.
 
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug
-```
+Follow mode: keeps the reference in sync with your DAW's transport, with an adjustable offset, or let it free-run, or catch a loop section.
 
-On macOS, built plugins are copied into `~/Library/Audio/Plug-Ins/` after a successful build.
+Filter: solo the low, mid or high band to compare frequency ranges between your mix and the reference.
 
-Standalone:
+LUFS meter: short-term, momentary and integrated, for level-matched comparisons.
 
-```bash
-cmake --build build --target ReferenceMax_Standalone
-```
+Match: measures the DAW's loudness and adjusts the reference's gain to match it.
+
+Spectrum analyser with a DAW trace and a Reference trace drawn on top of each other.
+
+Mono fold and L/R swap.
+
+
+Installation:
+
+Download the latest macOS .pkg or Windows VST3 from the Releases page.
+
+Installation (macOS):
+
+Double-click the .pkg and follow the installer.
+
+macOS will warn you that the package is from an unidentified developer. Open System Settings → Privacy & Security, find the message about Svarog Referencer.pkg, and click Open Anyway.
+
+Run the installer to completion. It will place the AU and VST3 in the correct system folders.
+
+When macOS blocks the plugin with a "cannot be opened" message, run this in Terminal:
+
+sudo xattr -cr "/Library/Audio/Plug-Ins/Components/Svarog Referencer.component"
+sudo xattr -cr "/Library/Audio/Plug-Ins/VST3/Svarog Referencer.vst3"
+
+Then restart DAW.
+
+Uninstallation
+
+sudo rm -rf "/Library/Audio/Plug-Ins/Components/Svarog Referencer.component"
+sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Svarog Referencer.vst3"
+
+
+Installation (Windows):
+
+Download the latest Windows .zip from the Releases page and unzip it.
+
+Copy Svarog Referencer.vst3 to:
+
+C:\Program Files\Common Files\VST3
+Windows might ask for administrator permission. Click Continue.
+
+If the plugin doesn't appear in your DAW, unblock it: right-click Svarog Referencer.vst3, choose Properties, tick Unblock at the bottom of the General tab, then click OK.
+
+Open your DAW and rescan plugins. In most DAWs this is in the plugin preferences or settings menu.
+
+
+Basic usage
+
+Insert Svarog Referencer on Stereo Out/Monitoring output.
+
+In the plugin, click + Add reference to add a slot, then load an audio file into it.
+
+Play your DAW. Use the DAW / Reference toggle at the top right to switch between your mix and the reference.
+
+Use Match to level-match the reference to your mix, or Follow to keep the reference synced to your DAW's timeline.
+
+The filter bar lets you solo the low, mid or high band. Useful for hearing whether your low end is in the same ballpark as the reference.
+
+
+Known limitations
+
+Unsigned build. The plugin is not code-signed or notarized. macOS will warn you on first install, and you may need to allow it in Privacy & Security and/or run the xattr command above.
+
+Latency. The plugin reports 512 samples of latency to the host. Logic and other DAWs compensate automatically via Plugin Delay Compensation. This is used to smooth some internal state changes.
+
+Personal project. I'll fix what I can when I can, but there's no support commitment.
+
+Feedback
+Open an issue on GitHub
+
+If you're reporting a bug, please include:
+
+macOS version
+
+DAW and version
+
+Plugin format (AU or VST3)
+
+A short description of what you did and what happened
+
+License
+Copyright (c) 2026 Šime Alavanja, Svarog Studio
+
+Permission is granted to use this software for personal and commercial purposes. Redistribution in source or binary form, with or without modification, is permitted provided this notice is retained. This software is provided "as is", without warranty of any kind.
