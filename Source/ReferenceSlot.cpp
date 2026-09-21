@@ -42,8 +42,6 @@ struct LoadReferenceJob final : juce::ThreadPoolJob
 };
 
 //==============================================================================
-// Offline LUFS measurement job.
-//==============================================================================
 
 struct MeasureLufsJob final : juce::ThreadPoolJob
 {
@@ -285,6 +283,48 @@ void ReferenceSlot::setFollowMode (bool shouldFollow)
 
 //==============================================================================
 
+void ReferenceSlot::handleTransportEnd()
+{
+    const auto length = transport.getLengthInSeconds();
+
+    if (length <= 0.0)
+        return;
+
+    const auto position = transport.getCurrentPosition();
+
+    // "At the end" means position is very close to length. A small
+    // tolerance is used because floating-point positions do not
+    // land exactly on `length`.
+    const bool atEnd = (length - position) < 0.05;
+
+    if (! atEnd)
+        return;
+
+    if (shouldBePlaying.load() && ! pausedByTransport.load())
+    {
+        // Still supposed to be playing. Rewind and restart.
+        transport.setPosition (0.0);
+        transport.start();
+    }
+    else
+    {
+        // Not supposed to be playing. Rewind so the next play starts
+        // from the top.
+        transport.setPosition (0.0);
+    }
+}
+
+void ReferenceSlot::ensureTransportRunning()
+{
+    if (shouldBePlaying.load() && ! pausedByTransport.load())
+    {
+        if (! transport.isPlaying())
+            transport.start();
+    }
+}
+
+//==============================================================================
+
 void ReferenceSlot::getNextAudioBlock (
     const juce::AudioSourceChannelInfo& info)
 {
@@ -343,14 +383,18 @@ void ReferenceSlot::getNextAudioBlock (
         if (std::abs (delta) > seekThresholdSeconds)
             transport.setPosition (target);
 
+        ensureTransportRunning();
         transport.getNextAudioBlock (info);
+        handleTransportEnd();
         return;
     }
 
     // ---------- Free-running mode ----------
     if (! loopEnabled.load())
     {
+        ensureTransportRunning();
         transport.getNextAudioBlock (info);
+        handleTransportEnd();
         return;
     }
 
@@ -372,9 +416,13 @@ void ReferenceSlot::getNextAudioBlock (
 
     if (loopEnd <= loopStart + 0.000001)
     {
+        ensureTransportRunning();
         transport.getNextAudioBlock (info);
+        handleTransportEnd();
         return;
     }
+
+    ensureTransportRunning();
 
     auto samplesRemaining = numSamples;
     auto bufferOffset = 0;
@@ -448,6 +496,11 @@ void ReferenceSlot::setNormalizedPosition (float zeroToOne)
 
     transport.setPosition (
         juce::jlimit (0.0, 1.0, (double) zeroToOne) * length);
+
+    // If the transport had stopped at the end of the file, setting the
+    // position does not restart it. Do so explicitly if we are supposed
+    // to be playing.
+    ensureTransportRunning();
 }
 
 float ReferenceSlot::getNormalizedPosition() const
@@ -468,6 +521,31 @@ float ReferenceSlot::getNormalizedPosition() const
 void ReferenceSlot::setLoopEnabled (bool shouldLoop)
 {
     loopEnabled.store (shouldLoop);
+
+    // If enabling loop and the transport was stopped at the end, rewind
+    // to the loop start (or the file start) and restart.
+    if (shouldLoop)
+    {
+        const juce::SpinLock::ScopedLockType lock (callbackLock);
+
+        const auto length = transport.getLengthInSeconds();
+
+        if (length > 0.0)
+        {
+            const auto loopStart = juce::jlimit (
+                0.0,
+                length,
+                (double) loopStartNormalized.load() * length);
+
+            const auto current = transport.getCurrentPosition();
+
+            if (current < loopStart || current >= length - 0.05)
+                transport.setPosition (loopStart);
+        }
+
+        ensureTransportRunning();
+    }
+
     sendChangeMessage();
 }
 
@@ -493,16 +571,18 @@ void ReferenceSlot::setLoopRangeNormalized (float start,
 
     if (loopEnabled.load())
     {
+        const juce::SpinLock::ScopedLockType lock (callbackLock);
+
         const auto current = getNormalizedPosition();
 
         if (current < start || current >= end)
         {
-            const juce::SpinLock::ScopedLockType lock (callbackLock);
-
             const auto length = transport.getLengthInSeconds();
 
             if (length > 0.0)
                 transport.setPosition ((double) start * length);
+
+            ensureTransportRunning();
         }
     }
 
@@ -557,6 +637,10 @@ void ReferenceSlot::transportResumed()
         transport.setPosition (pos);
         pausedPosition.store (0.0);
     }
+
+    // The transport may have stopped itself when the file ended.
+    // Ensure it is running again now that we are resuming playback.
+    ensureTransportRunning();
 }
 
 void ReferenceSlot::syncTransport (bool isPlaying)

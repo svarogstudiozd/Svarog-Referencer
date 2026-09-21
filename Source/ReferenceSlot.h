@@ -70,6 +70,14 @@ private:
                      uint32_t token,
                      std::unique_ptr<juce::AudioFormatReader> reader);
 
+    // Detect end-of-file and put the transport back into a usable
+    // state so subsequent play attempts are audible.
+    void handleTransportEnd();
+
+    // If we are supposed to be playing, ensure the transport is
+    // actually running. Safe to call after any position change.
+    void ensureTransportRunning();
+
     friend struct LoadReferenceJob;
     friend struct MeasureLufsJob;
 
