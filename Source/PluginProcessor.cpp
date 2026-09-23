@@ -482,7 +482,7 @@ void ReferenceMaxAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
 
     setLatencySamples (samplesPerBlock);
 
-    slowStep = 1.0f / (0.020f * (float) juce::jmax (1.0, sampleRate));   // 20 ms
+    slowStep = 1.0f / (0.005f * (float) juce::jmax (1.0, sampleRate));   // 20 ms
 
     // The transport-jump fade-out must complete within one block of
     // audio: that is the headroom the one-block input delay gives us.
@@ -596,9 +596,9 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     bool dawIsPlaying = true;
     double dawPositionSeconds = -1.0;
 
-    if (auto* playHead = getPlayHead())
+    if (auto* ph = getPlayHead())
     {
-        auto pos = playHead->getPosition();
+        auto pos = ph->getPosition();
 
         if (pos.hasValue())
         {
@@ -723,6 +723,10 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 refSlotFade = 0.0f;
                 lastRefSourcePhysical = soloPhysical;
+
+                // New reference source: restart the integrated loudness
+                // measurement so it reflects only this track.
+                lufsMeter.reset();
             }
 
             if (soloRefSlot.isFollowMode() && dawPositionSeconds >= 0.0)
@@ -980,9 +984,9 @@ void ReferenceMaxAudioProcessor::syncPlaybackState()
 {
     bool dawIsPlaying = true;
 
-    if (auto* playHead = getPlayHead())
+    if (auto* ph = getPlayHead())
     {
-        auto pos = playHead->getPosition();
+        auto pos = ph->getPosition();
         if (pos.hasValue())
             dawIsPlaying = pos->getIsPlaying();
     }

@@ -36,8 +36,7 @@ private:
     int currentSolo = 0;
 
     void updateButtonStates();
-    // Toggle: if `choice` is already active, switch to Off (0). Otherwise
-    // activate `choice`.
+    void updateCrossoverClamps();
     void toggleSoloChoice (int choice);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FilterBar)
