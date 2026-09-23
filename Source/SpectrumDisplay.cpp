@@ -8,8 +8,6 @@ namespace
     constexpr float minDb   = -90.0f;
     constexpr float maxDb   =   0.0f;
 
-    // Fixed display tilt: +3 dB per octave, referenced to 1 kHz.
-    // This is the standard mastering-analyser slope (pink-noise-compensated).
     constexpr float tiltSlopeDbPerOctave = 3.0f;
 
     float freqToX (float freq)
@@ -17,6 +15,14 @@ namespace
         const auto logMin = std::log10 (minFreq);
         const auto logMax = std::log10 (maxFreq);
         return (std::log10 (juce::jlimit (minFreq, maxFreq, freq)) - logMin) / (logMax - logMin);
+    }
+
+    float xToFreq (float x)
+    {
+        const auto logMin = std::log10 (minFreq);
+        const auto logMax = std::log10 (maxFreq);
+        const float logF = logMin + x * (logMax - logMin);
+        return std::pow (10.0f, logF);
     }
 
     float dbToY (float db)
@@ -27,7 +33,7 @@ namespace
 
 SpectrumDisplay::SpectrumDisplay()
 {
-    setInterceptsMouseClicks (false, false);
+    setInterceptsMouseClicks (true, false);
     startTimerHz (30);
 }
 
@@ -68,6 +74,194 @@ void SpectrumDisplay::timerCallback()
     repaint();
 }
 
+//==============================================================================
+// Mouse handling
+//==============================================================================
+
+float SpectrumDisplay::xForCrossoverHz (juce::Rectangle<float> plot, float hz) const
+{
+    return plot.getX() + freqToX (hz) * plot.getWidth();
+}
+
+SpectrumDisplay::DragTarget SpectrumDisplay::crossoverAtX (float x,
+                                                            juce::Rectangle<float> plot) const
+{
+    if (filterSoloIndex <= 0)
+        return DragTarget::none;
+
+    const float lowX  = xForCrossoverHz (plot, filterLowHz);
+    const float highX = xForCrossoverHz (plot, filterHighHz);
+
+    const float distLow  = std::abs (x - lowX);
+    const float distHigh = std::abs (x - highX);
+
+    const bool onLow  = distLow  <= grabRadiusPx;
+    const bool onHigh = distHigh <= grabRadiusPx;
+
+    if (onLow && onHigh)
+        return distLow <= distHigh ? DragTarget::lowXover : DragTarget::highXover;
+
+    if (onLow)  return DragTarget::lowXover;
+    if (onHigh) return DragTarget::highXover;
+
+    return DragTarget::none;
+}
+
+void SpectrumDisplay::setCursorForHover (DragTarget target)
+{
+    if (target == DragTarget::none)
+        setMouseCursor (juce::MouseCursor::NormalCursor);
+    else
+        setMouseCursor (juce::MouseCursor::LeftRightResizeCursor);
+}
+
+void SpectrumDisplay::writeCrossover (DragTarget target, float hz, bool sendGesture)
+{
+    if (apvtsRef == nullptr || target == DragTarget::none)
+        return;
+
+    const juce::String id = (target == DragTarget::lowXover)
+                              ? "filter_low_xover"
+                              : "filter_high_xover";
+
+    if (auto* p = apvtsRef->getParameter (id))
+    {
+        const auto range = p->getNormalisableRange();
+        const float normalized = range.convertTo0to1 (hz);
+
+        if (sendGesture)
+            p->beginChangeGesture();
+
+        p->setValueNotifyingHost (normalized);
+
+        if (sendGesture)
+            p->endChangeGesture();
+    }
+}
+
+void SpectrumDisplay::mouseDown (const juce::MouseEvent& e)
+{
+    if (filterSoloIndex <= 0 || apvtsRef == nullptr)
+        return;
+
+    auto bounds = getLocalBounds().toFloat();
+    auto plot = bounds.reduced (10.0f, 8.0f);
+    plot.removeFromLeft (34.0f);
+    plot.removeFromBottom (16.0f);
+
+        const auto target = crossoverAtX (e.position.x, plot);
+
+    if (target != DragTarget::none)
+    {
+        dragging = target;
+
+        const juce::String id = (target == DragTarget::lowXover)
+                                  ? "filter_low_xover"
+                                  : "filter_high_xover";
+
+        if (auto* p = apvtsRef->getParameter (id))
+            p->beginChangeGesture();
+    }
+}
+
+void SpectrumDisplay::mouseDrag (const juce::MouseEvent& e)
+{
+    if (dragging == DragTarget::none || apvtsRef == nullptr)
+        return;
+
+    auto bounds = getLocalBounds().toFloat();
+    auto plot = bounds.reduced (10.0f, 8.0f);
+    plot.removeFromLeft (34.0f);
+    plot.removeFromBottom (16.0f);
+
+    // Convert the x position into a normalized position in the plot.
+    const float normX = juce::jlimit (0.0f, 1.0f,
+                                      (e.position.x - plot.getX()) / plot.getWidth());
+
+    // Convert to Hz via the inverse of the log axis.
+    const float hz = xToFreq (normX);
+
+    const juce::String id = (dragging == DragTarget::lowXover)
+                              ? "filter_low_xover"
+                              : "filter_high_xover";
+
+    if (auto* p = apvtsRef->getParameter (id))
+    {
+        const auto range = p->getNormalisableRange();
+
+        float value = juce::jlimit (range.start, range.end, hz);
+
+        // Apply the crossover relationship clamp so the lines cannot
+        // cross, mirroring the FilterBar clamps.
+        if (dragging == DragTarget::lowXover)
+        {
+            value = juce::jmin (value, filterHighHz / minRatio);
+            value = juce::jmax (value, range.start);
+        }
+        else
+        {
+            value = juce::jmax (value, filterLowHz * minRatio);
+            value = juce::jmin (value, range.end);
+        }
+
+        const float normalized = range.convertTo0to1 (value);
+        p->setValueNotifyingHost (normalized);
+    }
+}
+
+void SpectrumDisplay::mouseUp (const juce::MouseEvent&)
+{
+    if (dragging == DragTarget::none || apvtsRef == nullptr)
+        return;
+
+    const juce::String id = (dragging == DragTarget::lowXover)
+                              ? "filter_low_xover"
+                              : "filter_high_xover";
+
+    if (auto* p = apvtsRef->getParameter (id))
+        p->endChangeGesture();
+
+    dragging = DragTarget::none;
+    setCursorForHover (hovered);
+}
+
+void SpectrumDisplay::mouseMove (const juce::MouseEvent& e)
+{
+    if (filterSoloIndex <= 0)
+    {
+        if (hovered != DragTarget::none)
+        {
+            hovered = DragTarget::none;
+            setCursorForHover (hovered);
+        }
+        return;
+    }
+
+    auto bounds = getLocalBounds().toFloat();
+    auto plot = bounds.reduced (10.0f, 8.0f);
+    plot.removeFromLeft (34.0f);
+    plot.removeFromBottom (16.0f);
+
+        const auto target = crossoverAtX (e.position.x, plot);
+
+    if (target != hovered)
+    {
+        hovered = target;
+        setCursorForHover (hovered);
+    }
+}
+
+void SpectrumDisplay::mouseExit (const juce::MouseEvent&)
+{
+    if (dragging != DragTarget::none)
+        return;
+
+    hovered = DragTarget::none;
+    setCursorForHover (hovered);
+}
+
+//==============================================================================
+
 void SpectrumDisplay::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
@@ -77,7 +271,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     auto plot = bounds.reduced (10.0f, 8.0f);
 
-    auto leftAxis  = plot.removeFromLeft (34.0f);
+    auto leftAxis   = plot.removeFromLeft (34.0f);
     auto bottomAxis = plot.removeFromBottom (16.0f);
 
     drawGrid (g, plot);
@@ -131,28 +325,22 @@ void SpectrumDisplay::paint (juce::Graphics& g)
         }
     }
 
-    // Curves and filter dimming, all clipped to the plot rectangle so
-    // nothing can spill over the border into the axis label strips.
     {
         juce::Graphics::ScopedSaveState save (g);
         g.reduceClipRegion (plot.toNearestInt());
 
-        // Curves - draw order: ref first (behind), then daw (in front).
-        // For each signal: slow trace first (underneath), then fast fill on top.
         if (ref != nullptr)
         {
-            drawCurve (g, plot, *ref, Theme::refTrace, /*slow=*/ true);
-            drawCurve (g, plot, *ref, Theme::refTrace, /*slow=*/ false);
+            drawCurve (g, plot, *ref, Theme::refTrace, true);
+            drawCurve (g, plot, *ref, Theme::refTrace, false);
         }
 
         if (daw != nullptr)
         {
-            drawCurve (g, plot, *daw, Theme::dawTrace, /*slow=*/ true);
-            drawCurve (g, plot, *daw, Theme::dawTrace, /*slow=*/ false);
+            drawCurve (g, plot, *daw, Theme::dawTrace, true);
+            drawCurve (g, plot, *daw, Theme::dawTrace, false);
         }
 
-        // Filter dimming on top, so the out-of-range regions read as
-        // "not soloed" across both traces and fills.
         drawFilterDimming (g, plot);
     }
 
@@ -208,8 +396,6 @@ void SpectrumDisplay::drawCurve (juce::Graphics& g,
         const float db = slow ? analyzer.getSlowMagnitudeDb (bin)
                               : analyzer.getMagnitudeDb (bin);
 
-        // Fixed +3 dB/oct tilt, referenced to 1 kHz - applied identically to
-        // both traces so they overlay correctly.
         const float octavesFrom1k = std::log2 (freq / 1000.0f);
         const float tilted = db + tiltSlopeDbPerOctave * octavesFrom1k;
 
@@ -218,9 +404,6 @@ void SpectrumDisplay::drawCurve (juce::Graphics& g,
 
         if (! started)
         {
-            // The first included bin is above 20 Hz (the axis minimum), so
-            // extend the path horizontally back to the plot's left edge.
-            // This closes the small visual gap at the bottom of the low end.
             path.startNewSubPath (area.getX(), y);
             path.lineTo (x, y);
             firstY = y;
@@ -239,13 +422,11 @@ void SpectrumDisplay::drawCurve (juce::Graphics& g,
 
     if (slow)
     {
-        // Slow trace: prominent stroke line, no fill.
         g.setColour (colour);
         g.strokePath (path, juce::PathStrokeType (2.0f));
     }
     else
     {
-        // Fast trace: translucent filled shape only - no stroke line.
         juce::Path filled = path;
         filled.lineTo (area.getRight(), area.getBottom());
         filled.lineTo (area.getX(),     area.getBottom());
@@ -289,13 +470,31 @@ void SpectrumDisplay::drawFilterDimming (juce::Graphics& g, juce::Rectangle<floa
             break;
     }
 
-    g.setColour (Theme::accentRedBright.withAlpha (0.7f));
+    const bool lowHovered  = (hovered == DragTarget::lowXover)
+                          || (dragging == DragTarget::lowXover);
+    const bool highHovered = (hovered == DragTarget::highXover)
+                          || (dragging == DragTarget::highXover);
+
+    const auto lowColour  = lowHovered
+        ? Theme::accentRedBright
+        : Theme::accentRedBright.withAlpha (0.7f);
+    const auto highColour = highHovered
+        ? Theme::accentRedBright
+        : Theme::accentRedBright.withAlpha (0.7f);
+
+    const float thickness = 1.0f;
 
     if (filterSoloIndex == 1 || filterSoloIndex == 2)
-        g.drawVerticalLine ((int) lowX, area.getY(), area.getBottom());
+    {
+        g.setColour (lowColour);
+        g.drawLine (lowX, area.getY(), lowX, area.getBottom(), thickness);
+    }
 
     if (filterSoloIndex == 2 || filterSoloIndex == 3)
-        g.drawVerticalLine ((int) highX, area.getY(), area.getBottom());
+    {
+        g.setColour (highColour);
+        g.drawLine (highX, area.getY(), highX, area.getBottom(), thickness);
+    }
 }
 
 void SpectrumDisplay::drawLegend (juce::Graphics& g, juce::Rectangle<float> area) const
@@ -333,5 +532,4 @@ void SpectrumDisplay::drawLegend (juce::Graphics& g, juce::Rectangle<float> area
 
 void SpectrumDisplay::resized()
 {
-    // Nothing to lay out - no child components.
 }

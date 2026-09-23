@@ -101,7 +101,7 @@ public:
         highHz = juce::jlimit (500.0f, 20000.0f, highHz);
 
         if (lowHz >= highHz)
-            highHz = juce::jmin (20000.0f, lowHz * 4.0f);
+            highHz = juce::jmin (20000.0f, lowHz * 2.0f);
 
         constexpr float epsilon = 1.0e-4f;
 
@@ -129,9 +129,11 @@ public:
         // Dry/wet target only moves when crossing the off/on boundary.
         // Inside the non-zero set, the dry/wet stays fully wet and the
         // band crossfade takes over.
-        const float newTargetMix = (solo != 0) ? 1.0f : 0.0f;
+                const float newTargetMix = (solo != 0) ? 1.0f : 0.0f;
 
-        if (newTargetMix != targetMix)
+        constexpr float mixEpsilon = 1.0e-6f;
+
+        if (std::abs (newTargetMix - targetMix) > mixEpsilon)
             targetMix = newTargetMix;
 
         // If both the old and the new solo are non-zero and different,

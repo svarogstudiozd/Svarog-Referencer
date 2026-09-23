@@ -8,6 +8,13 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
       monoAttachment (apvts, "mono",    monoButton),
       swapAttachment (apvts, "swap_lr", swapButton)
 {
+    // Clamp the two crossovers so they cannot cross. The minimum ratio
+    // is the same factor the processor enforces: 4x (two octaves)
+    // between the low and high crossovers. These limits are updated
+    // dynamically when either crossover changes, so neither can push
+    // past the other.
+    updateCrossoverClamps();
+
     titleLabel.setText ("Filter", juce::dontSendNotification);
     titleLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
@@ -37,6 +44,8 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     setupUtilityButton (swapButton);
 
     apvtsRef.addParameterListener ("filter_solo", this);
+    apvtsRef.addParameterListener ("filter_low_xover", this);
+    apvtsRef.addParameterListener ("filter_high_xover", this);
 
     if (auto* p = apvtsRef.getParameter ("filter_solo"))
         currentSolo = juce::roundToInt (p->convertFrom0to1 (p->getValue()));
@@ -47,6 +56,8 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
 FilterBar::~FilterBar()
 {
     apvtsRef.removeParameterListener ("filter_solo", this);
+    apvtsRef.removeParameterListener ("filter_low_xover", this);
+    apvtsRef.removeParameterListener ("filter_high_xover", this);
 }
 
 void FilterBar::paint (juce::Graphics& g)
@@ -109,6 +120,33 @@ void FilterBar::parameterChanged (const juce::String& parameterID, float)
                 safe->updateButtonStates();
             });
     }
+    else if (parameterID == "filter_low_xover" || parameterID == "filter_high_xover")
+    {
+        juce::MessageManager::callAsync (
+            [safe = juce::Component::SafePointer<FilterBar> (this)]
+            {
+                if (safe == nullptr)
+                    return;
+
+                safe->updateCrossoverClamps();
+            });
+    }
+}
+
+void FilterBar::updateCrossoverClamps()
+{
+    constexpr double minRatio = 2.0;
+
+    const double lowValue  = lowXoverBox.getCurrentValue();
+    const double highValue = highXoverBox.getCurrentValue();
+
+    // Low/Mid cannot go above (Mid/High) / minRatio.
+    lowXoverBox.setClampRange (20.0,
+                               juce::jmax (20.0, highValue / minRatio));
+
+    // Mid/High cannot go below (Low/Mid) * minRatio.
+    highXoverBox.setClampRange (juce::jmin (20000.0, lowValue * minRatio),
+                                20000.0);
 }
 
 void FilterBar::updateButtonStates()

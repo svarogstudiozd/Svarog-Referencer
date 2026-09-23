@@ -2,16 +2,18 @@
 #include "Theme.h"
 
 DraggableValueBox::DraggableValueBox (juce::AudioProcessorValueTreeState& apvtsToUse,
-                                      const juce::String& parameterID,
+                                      const juce::String& parameterIDToUse,
                                       const juce::String& prefixLabel,
                                       const juce::String& valueSuffix,
                                       double resetValue)
     : apvts (apvtsToUse),
+      parameterID (parameterIDToUse),
       prefix (prefixLabel),
       suffix (valueSuffix),
       resetToValue (resetValue)
 {
     param = apvts.getParameter (parameterID);
+
     jassert (param != nullptr);
 
     if (param != nullptr)
@@ -20,7 +22,37 @@ DraggableValueBox::DraggableValueBox (juce::AudioProcessorValueTreeState& apvtsT
     setInterceptsMouseClicks (true, false);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
 
+    apvts.addParameterListener (parameterID, this);
+
     setValueFromParameter();
+}
+
+DraggableValueBox::~DraggableValueBox()
+{
+    apvts.removeParameterListener (parameterID, this);
+}
+
+void DraggableValueBox::setClampRange (double minVal, double maxVal)
+{
+    clampMin = minVal;
+    clampMax = maxVal;
+    hasClamp = (clampMin <= clampMax);
+
+    if (hasClamp)
+    {
+        const double clamped = clampedValue (currentValue);
+
+        if (std::abs (clamped - currentValue) > 1.0e-6)
+            applyFromNormalized ((float) range.convertTo0to1 ((float) clamped));
+    }
+}
+
+double DraggableValueBox::clampedValue (double value) const
+{
+    if (! hasClamp)
+        return value;
+
+    return juce::jlimit (clampMin, clampMax, value);
 }
 
 void DraggableValueBox::setValueFromParameter()
@@ -30,6 +62,19 @@ void DraggableValueBox::setValueFromParameter()
 
     currentValue = range.convertFrom0to1 (param->getValue());
     repaint();
+}
+
+void DraggableValueBox::parameterChanged (const juce::String& id, float)
+{
+    if (id != parameterID)
+        return;
+
+    juce::MessageManager::callAsync (
+        [safe = juce::Component::SafePointer<DraggableValueBox> (this)]
+        {
+            if (safe != nullptr)
+                safe->setValueFromParameter();
+        });
 }
 
 juce::String DraggableValueBox::formatDisplay() const
@@ -58,8 +103,17 @@ void DraggableValueBox::paint (juce::Graphics& g)
 
 void DraggableValueBox::mouseDown (const juce::MouseEvent& e)
 {
-    dragStartValue = currentValue;
+    dragStartValue = (float) currentValue;
     dragStartY = e.getMouseDownY();
+
+    if (param != nullptr)
+        param->beginChangeGesture();
+}
+
+void DraggableValueBox::mouseUp (const juce::MouseEvent&)
+{
+    if (param != nullptr)
+        param->endChangeGesture();
 }
 
 void DraggableValueBox::mouseDrag (const juce::MouseEvent& e)
@@ -74,7 +128,14 @@ void DraggableValueBox::mouseDrag (const juce::MouseEvent& e)
     const float normDelta = (float) deltaY / pixelsForFullRange;
     const float normNew   = juce::jlimit (0.0f, 1.0f, normStart + normDelta);
 
-    applyFromNormalized (normNew);
+    const float value = range.convertFrom0to1 (normNew);
+    const float clamped = (float) clampedValue (value);
+    const float normClamped = range.convertTo0to1 (clamped);
+
+    param->setValueNotifyingHost (normClamped);
+
+    currentValue = clamped;
+    repaint();
 }
 
 void DraggableValueBox::mouseDoubleClick (const juce::MouseEvent&)
@@ -82,7 +143,14 @@ void DraggableValueBox::mouseDoubleClick (const juce::MouseEvent&)
     if (param == nullptr)
         return;
 
-    applyFromNormalized (param->convertTo0to1 ((float) resetToValue));
+    const float norm = param->convertTo0to1 ((float) resetToValue);
+
+    param->beginChangeGesture();
+    param->setValueNotifyingHost (norm);
+    param->endChangeGesture();
+
+    currentValue = resetToValue;
+    repaint();
 }
 
 void DraggableValueBox::mouseEnter (const juce::MouseEvent&)
