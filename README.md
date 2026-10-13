@@ -11,7 +11,7 @@ v0.1 — early, unsigned
 
 Formats: AU, VST3 (macOS), VST3 (Windows)
 
-Tested with: Logic Pro.
+Tested with: Logic Pro and Cubase on macOS, Reaper on Windows
 
 What it does:
 

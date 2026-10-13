@@ -1,6 +1,7 @@
 #include "ReferenceDetailView.h"
 #include "Theme.h"
 #include "TimeFormat.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     : processor (p)
@@ -15,32 +16,41 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     addAndMakeVisible (titleLabel);
 
     fileLabel.setText ("", juce::dontSendNotification);
-    fileLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
+    fileLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     fileLabel.setMinimumHorizontalScale (0.6f);
     fileLabel.setJustificationType (juce::Justification::centredLeft);
     fileLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (fileLabel);
 
-    // Replace button is deliberately red (primary action) and overrides
-    // the LookAndFeel's default panel colour.
+    // Replace button: neutral panel colour, matching the other
+    // non-engaged buttons in the row.
     replaceButton.onClick = [this] { openFileChooser(); };
-    replaceButton.setColour (juce::TextButton::buttonColourId, Theme::accentRed);
+    replaceButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
+    replaceButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
     replaceButton.setColour (juce::TextButton::textColourOnId, Theme::greyLight);
     replaceButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (replaceButton);
+    
+    replaceButton.getProperties().set ("fontSize", 12.0f);
 
     loopButton.setClickingTogglesState (true);
     loopButton.onClick = [this]
+    
     {
         processor.getSlot (currentLogicalIndex).setLoopEnabled (loopButton.getToggleState());
     };
+    repaint(); 
+    
     loopButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (loopButton);
+
+    loopButton.getProperties().set ("fontSize", 12.0f);
 
     followButton.setClickingTogglesState (false);
     followButton.onClick = [this] { toggleFollow(); };
     followButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (followButton);
+    followButton.getProperties().set ("fontSize", 12.0f);
 
     matchButton.setClickingTogglesState (false);
     matchButton.onClick = [this] { onMatchButtonClicked(); };
@@ -59,11 +69,15 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     matchButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (matchButton);
 
+    matchButton.getProperties().set ("fontSize", 12.0f);
+
     offsetButton.setClickingTogglesState (false);
     offsetButton.onClick = [this] { onOffsetButtonClicked(); };
     offsetButton.onDoubleClick = [this] { onOffsetButtonDoubleClicked(); };
     offsetButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (offsetButton);
+
+    offsetButton.getProperties().set ("fontSize", 12.0f);
 
     playheadTimeLabel.setText ("--:--", juce::dontSendNotification);
     playheadTimeLabel.setFont (juce::FontOptions (14.0f, juce::Font::bold));
@@ -246,6 +260,11 @@ void ReferenceDetailView::updateReplaceButtonLabel()
         replaceButton.setButtonText ("Loading...");
         replaceButton.setEnabled (false);
     }
+    else if (slot.isMissingFile())
+    {
+        replaceButton.setButtonText ("Locate");
+        replaceButton.setEnabled (true);
+    }
     else if (slot.isLoaded())
     {
         replaceButton.setButtonText ("Replace");
@@ -347,6 +366,8 @@ void ReferenceDetailView::toggleFollow()
 
     if (waveform != nullptr)
         waveform->repaint();
+    
+        repaint(); 
 }
 
 //==============================================================================
@@ -693,6 +714,11 @@ void ReferenceDetailView::refresh()
                         juce::dontSendNotification);
     fileLabel.setText (slot.getStatusText(), juce::dontSendNotification);
 
+    // Red file label for missing files so the problem is unmistakable.
+    fileLabel.setColour (juce::Label::textColourId,
+                         slot.isMissingFile() ? Theme::accentRedBright
+                                              : Theme::greyLight);
+
     updateReplaceButtonLabel();
 
     const bool isLooping = slot.isLoopEnabled();
@@ -718,21 +744,104 @@ void ReferenceDetailView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    g.setColour (draggingOver ? Theme::panelHover : Theme::panel);
-    g.fillRoundedRectangle (bounds, 8.0f);
+    // Raised panel, matching the filter bar. The fill brightens slightly
+    // when a file is being dragged over the view.
+    const auto fillColour = draggingOver ? Theme::surfaceHover
+                                         : Theme::surfaceRaised;
 
-    g.setColour (Theme::accentRed.withAlpha (0.4f));
-    g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.5f);
+    auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel());
+
+    // Draw the panel background, top highlight, and outer border.
+    if (lf != nullptr)
+        lf->drawPanel (g, bounds, fillColour);
+    else
+    {
+        g.setColour (fillColour);
+        g.fillRoundedRectangle (bounds, Radius::panel);
+    }
+
+        // Draw shadows for the child buttons. Disabled buttons are drawn
+    // recessed, so they don't cast a shadow.
+    if (lf != nullptr)
+    {
+        const auto drawShadow = [&] (juce::Component& c)
+        {
+            if (! c.isEnabled())
+                return;
+
+            if (auto* button = dynamic_cast<juce::Button*> (&c))
+            {
+                if (button->getToggleState())
+                {
+                    lf->drawActiveControlShadow (g, c.getBounds().toFloat());
+                    return;
+                }
+            }
+
+            lf->drawControlShadow (g, c.getBounds().toFloat());
+        };
+
+        drawShadow (replaceButton);
+        drawShadow (loopButton);
+        drawShadow (followButton);
+        drawShadow (offsetButton);
+        drawShadow (matchButton);
+    }
+
 
     if (! isNoSlotMode() && statusText.isNotEmpty())
     {
         g.setColour (statusTextColour);
-        g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+        g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
         g.drawText (statusText,
                     statusRect,
                     juce::Justification::centredLeft,
                     false);
     }
+}
+
+void ReferenceDetailView::paintOverChildren (juce::Graphics& g)
+{
+    auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel());
+    if (lf == nullptr)
+        return;
+
+    // Gain slider glow — drawn here, after the children, so the glow
+    // sits over the slider's own fill rather than being covered by it.
+            const float hoverAlpha = juce::jlimit (0.0f, 1.0f,
+            (float) gainSlider.getProperties().getWithDefault ("hoverAlpha", 0.0f));
+
+        if (hoverAlpha > 0.0f)
+        {
+            const auto wellX = (float) gainSlider.getProperties().getWithDefault ("wellX", 0.0f);
+            const auto wellY = (float) gainSlider.getProperties().getWithDefault ("wellY", 0.0f);
+            const auto wellW = (float) gainSlider.getProperties().getWithDefault ("wellW", 0.0f);
+            const auto wellH = (float) gainSlider.getProperties().getWithDefault ("wellH", 0.0f);
+            const auto fillRight = (float) gainSlider.getProperties().getWithDefault ("fillRightX", 0.0f);
+
+            // Translate from slider-local to detail-view coordinates.
+            const auto offset = gainSlider.getPosition();
+            const float ox = (float) offset.x;
+            const float oy = (float) offset.y;
+
+            juce::Rectangle<float> fillBounds (
+                ox + wellX,
+                oy + wellY,
+                juce::jmax (0.0f, fillRight - wellX),
+                wellH);
+
+            if (fillBounds.getWidth() > 0.5f)
+            {
+                juce::Path glowPath;
+                glowPath.addRoundedRectangle (fillBounds, Radius::control);
+
+                juce::DropShadow glow (
+                    Theme::accentRedBright.withAlpha (0.75f * hoverAlpha),
+                    12,
+                    { 0, 0 });
+                glow.drawForPath (g, glowPath);
+            }
+        }
 }
 
 void ReferenceDetailView::resized()
@@ -769,15 +878,15 @@ void ReferenceDetailView::resized()
     if (waveform != nullptr)
         waveform->setBounds (bounds);
 
-    const int playheadWidth   = 58;
-    const int loopButtonW     = 48;
-    const int followButtonW   = 72;
-    const int offsetButtonW   = 95;
+    const int playheadWidth   = 44;
+    const int loopButtonW     = 92;
+    const int followButtonW   = 92;
+    const int offsetButtonW   = 92;
     const int statusWidth     = 200;
     const int statusLeftPad   = 12;
-    const int matchButtonW    = 108;
+    const int matchButtonW    = 95;
     const int gainLabelW      = 34;
-    const int gainSliderW     = 110;
+    const int gainSliderW     = 105;
     const int gainValueW      = 62;
     const int tightGap        = 4;
     const int normalGap       = 6;
@@ -817,7 +926,6 @@ void ReferenceDetailView::resized()
     lx += statusLeftPad;
     statusRect = juce::Rectangle<int> (lx, rowY, statusWidth, rowH);
 }
-
 //==============================================================================
 
 void ReferenceDetailView::timerCallback()
@@ -917,17 +1025,17 @@ void ReferenceDetailView::filesDropped (const juce::StringArray& files, int, int
     if (isNoSlotMode())
         return;
 
+    juce::Array<juce::File> fileArray;
+
     for (const auto& path : files)
     {
         const juce::File file (path);
 
         if (AudioFileSupport::isSupportedFile (file))
-        {
-            processor.resetSlotForNewFile (currentLogicalIndex);
-            processor.getSlot (currentLogicalIndex).loadFileAsync (file);
-            break;
-        }
+            fileArray.add (file);
     }
+
+    loadFilesIntoSlots (fileArray, currentLogicalIndex);
 }
 
 //==============================================================================
@@ -942,30 +1050,111 @@ void ReferenceDetailView::openFileChooser()
         if (safe == nullptr || safe->isNoSlotMode())
             return;
 
+        // If the slot has a recorded missing path, start the chooser
+        // there so the user can quickly re-pick the same file.
+        juce::File startLocation;
+
+        {
+            auto& slot = safe->processor.getSlot (safe->currentLogicalIndex);
+            const auto missing = slot.getMissingFilePath();
+
+            if (missing != juce::File())
+            {
+                const auto folder = missing.getParentDirectory();
+
+                if (folder.isDirectory())
+                    startLocation = folder;
+            }
+        }
+
         safe->chooser = std::make_unique<juce::FileChooser> (
             "Load reference audio",
-            juce::File(),
+            startLocation,
             AudioFileSupport::fileChooserWildcard());
 
         const auto flags = juce::FileBrowserComponent::openMode
-                         | juce::FileBrowserComponent::canSelectFiles;
+                         | juce::FileBrowserComponent::canSelectFiles
+                         | juce::FileBrowserComponent::canSelectMultipleItems;
 
-        const int slotIndex = safe->currentLogicalIndex;
+        const int startSlot = safe->currentLogicalIndex;
 
-        safe->chooser->launchAsync (flags, [safe, slotIndex] (const juce::FileChooser& fc)
+        safe->chooser->launchAsync (flags, [safe, startSlot] (const juce::FileChooser& fc)
         {
             if (safe == nullptr)
                 return;
 
-            const auto file = fc.getResult();
+            const auto results = fc.getResults();
 
-            if (AudioFileSupport::isSupportedFile (file))
-            {
-                safe->processor.resetSlotForNewFile (slotIndex);
-                safe->processor.getSlot (slotIndex).loadFileAsync (file);
-            }
+            if (results.isEmpty())
+                return;
+
+            safe->loadFilesIntoSlots (results, startSlot);
         });
     });
+}
+
+void ReferenceDetailView::loadFilesIntoSlots (const juce::Array<juce::File>& files,
+                                              int startLogicalSlot)
+{
+    if (files.isEmpty())
+        return;
+
+    const int maxSlots = ReferenceMaxAudioProcessor::maxReferenceSlots;
+    const int currentVisible = processor.getNumVisibleSlots();
+
+    // Ordered list of target slot indices:
+    //   1. The current slot (where the user clicked Load).
+    //   2. Any other currently-visible, empty slots.
+    //   3. New slots created as needed.
+    std::vector<int> targetSlots;
+    targetSlots.push_back (startLogicalSlot);
+
+    for (int i = 0; i < currentVisible; ++i)
+    {
+        if (i == startLogicalSlot)
+            continue;
+
+        auto& slot = processor.getSlot (i);
+
+        if (! slot.isLoaded() && ! slot.isLoading() && ! slot.isMissingFile())
+            targetSlots.push_back (i);
+    }
+
+    size_t targetIndex = 0;
+
+    for (const auto& file : files)
+    {
+        if (! AudioFileSupport::isSupportedFile (file))
+            continue;
+
+        if (targetIndex >= targetSlots.size())
+        {
+            const int currentlyVisible = processor.getNumVisibleSlots();
+
+            if (currentlyVisible >= maxSlots)
+                break;
+
+            processor.addSlot();
+            targetSlots.push_back (currentlyVisible);
+        }
+
+        if (targetIndex >= targetSlots.size())
+            break;
+
+        const int slotIndex = targetSlots[targetIndex];
+
+        processor.resetSlotForNewFile (slotIndex);
+        processor.getSlot (slotIndex).loadFileAsync (file);
+
+        ++targetIndex;
+    }
+
+    // The editor picks up all subsequent changes automatically:
+    //   - addSlot() fires the num_visible_slots parameter, which the
+    //     editor listens to and responds to by refreshing the grid.
+    //   - Each loadFileAsync() sends a change message from its slot,
+    //     which the editor also listens for.
+    // Nothing more to do here.
 }
 
 void ReferenceDetailView::openChooserForCurrentSlot()

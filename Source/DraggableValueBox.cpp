@@ -1,5 +1,6 @@
 #include "DraggableValueBox.h"
 #include "Theme.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 DraggableValueBox::DraggableValueBox (juce::AudioProcessorValueTreeState& apvtsToUse,
                                       const juce::String& parameterIDToUse,
@@ -87,15 +88,74 @@ void DraggableValueBox::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    g.setColour (hovered ? Theme::panelHover : Theme::panel);
-    g.fillRoundedRectangle (bounds, 5.0f);
+    const bool enabled = isEnabled();
 
-    g.setColour (hovered ? Theme::border : Theme::borderSubtle);
-    g.drawRoundedRectangle (bounds.reduced (0.5f), 5.0f, 1.0f);
+    // The box is drawn as a recessed control — it reads as a well cut
+    // into the panel, matching the disabled buttons and the spectrum
+    // plot. When hovered and enabled, the fill lightens slightly.
+    auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel());
 
-    g.setColour (Theme::textPrimary);
-    g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+ // Base fill: darker than the surrounding panel so the box reads as
+    // a well cut into the surface. Hovering lightens it slightly;
+    // disabled darkens it further.
+    juce::Colour fill = Theme::surfaceRaised.darker (0.35f);
 
+    if (! enabled)
+        fill = fill.darker (0.35f);
+    else if (hovered)
+        fill = fill.brighter (0.05f);
+
+    if (lf != nullptr)
+    {
+        lf->drawRecessedControl (g, bounds, fill);
+    }
+    else
+    {
+        // Fallback if the LookAndFeel isn't ours.
+        g.setColour (fill);
+        g.fillRoundedRectangle (bounds, Radius::control);
+
+        // Top inner shadow.
+        {
+            juce::Graphics::ScopedSaveState save (g);
+
+            juce::Path clip;
+            clip.addRoundedRectangle (bounds, Radius::control);
+            g.reduceClipRegion (clip, {});
+
+            juce::ColourGradient shadow (
+                juce::Colours::black.withAlpha (0.6f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getY() + 4.0f,
+                false);
+            g.setGradientFill (shadow);
+            g.fillRect (bounds.withHeight (5.0f));
+        }
+    }
+
+    // Text: brighter when enabled and hovered, faint when disabled.
+    juce::Colour textColour;
+    if (! enabled)
+        textColour = Theme::textFaint;
+    else if (hovered)
+        textColour = Theme::textPrimary;
+    else
+        textColour = Theme::textSecondary;
+
+    g.setColour (textColour);
+    g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
+
+    // Subtle text shadow for a lifted feel on the recessed surface.
+    if (enabled)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        g.drawText (formatDisplay(),
+                    getLocalBounds().reduced (8, 0).translated (0, 1),
+                    juce::Justification::centred);
+    }
+
+    g.setColour (textColour);
     g.drawText (formatDisplay(),
                 getLocalBounds().reduced (8, 0),
                 juce::Justification::centred);
@@ -175,5 +235,14 @@ void DraggableValueBox::applyFromNormalized (float normalized)
     param->endChangeGesture();
 
     currentValue = range.convertFrom0to1 (normalized);
+    repaint();
+}
+
+void DraggableValueBox::enablementChanged()
+{
+    // Swap cursor based on enabled state: normal arrow when disabled,
+    // resize cursor when enabled.
+    setMouseCursor (isEnabled() ? juce::MouseCursor::UpDownResizeCursor
+                                : juce::MouseCursor::NormalCursor);
     repaint();
 }

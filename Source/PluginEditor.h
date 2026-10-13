@@ -9,6 +9,7 @@
 #include "LufsMeterComponent.h"
 #include "ModeToggleButton.h"
 #include "ReferenceMaxLookAndFeel.h"
+#include "SessionStrip.h"
 
 class ReferenceMaxAudioProcessorEditor : public juce::AudioProcessorEditor,
                                          public juce::FileDragAndDropTarget,
@@ -29,9 +30,6 @@ public:
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
 
 private:
-    // Layout constants shared between computeHeightForSlots() and resized().
-    // Keeping them in one place guarantees the computed height always
-    // matches what resized() actually lays out.
     static constexpr int headerHeight    = 48;
     static constexpr int gap             = 8;
     static constexpr int spectrumHeight  = 240;
@@ -40,6 +38,7 @@ private:
     static constexpr int outerPadding    = 32;
     static constexpr int meterWidth      = 56;
     static constexpr int meterGap        = 6;
+    static constexpr int sessionStripHeight = SessionStrip::preferredHeight;
 
     void updateModeButtons();
     void setListenMode (int modeIndex);
@@ -48,10 +47,14 @@ private:
     void updateResizeLimits();
     void resizeToFitSlotsDeferred();
 
+    // Expanded mode: hide filter bar, detail view, and meters; grow the
+    // spectrum to fill the freed space. Header, slot grid, and session
+    // strip stay visible.
+    void setExpanded (bool shouldBeExpanded);
+    void applyVisibilityForCurrentMode();
+
     ReferenceMaxAudioProcessor& processorRef;
 
-    // Custom LookAndFeel applied to the whole editor, so every button
-    // (except the mode toggle, which draws itself) inherits it.
     ReferenceMaxLookAndFeel customLookAndFeel;
 
     juce::Label titleLabel;
@@ -67,9 +70,12 @@ private:
     ReferenceDetailView detailView;
     SlotGrid slotGrid;
 
+    SessionStrip sessionStrip;
+
     juce::TooltipWindow tooltipWindow { this, 600 };
 
     bool resizePending = false;
+    bool expanded      = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferenceMaxAudioProcessorEditor)
 };

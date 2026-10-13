@@ -1,13 +1,35 @@
 #include "SpectrumAnalyzer.h"
 #include "Theme.h"
 
+namespace
+{
+    // Peak-hold ballistics for the stroked line.
+    //
+    // Attack is instantaneous: whenever the fast smoothed value rises
+    // above the currently held peak, the peak jumps to it and the hold
+    // timer restarts. After the hold expires, the peak decays
+    // exponentially toward the current smoothed value at the release
+    // time constant.
+    constexpr float peakHoldMs    = 320.0f;
+    constexpr float peakReleaseMs = 150.0f;
+
+    // Display-trace ballistics. Very light smoothing so that the low end
+    // of the curve keeps its real peaks and valleys. Slow enough that
+    // individual FFT frames don't visibly flicker.
+    constexpr float displayAttackMs  = 10.0f;
+    constexpr float displayReleaseMs = 300.0f;
+}
+
 SpectrumAnalyzer::SpectrumAnalyzer()
 {
     ringBuffer.setSize (2, fftSize);
     ringBuffer.clear();
     magnitudesDb.fill (-120.0f);
     smoothedDb.fill (-120.0f);
-    slowSmoothedDb.fill (-120.0f);
+    displayDb.fill (-120.0f);
+    peakHoldDb.fill (-120.0f);
+    peakHoldStartMs.fill (0);
+    peakDb.fill (-120.0f);
 }
 
 void SpectrumAnalyzer::prepare (double newSampleRate)
@@ -24,7 +46,15 @@ void SpectrumAnalyzer::reset()
     fftWork.fill (0.0f);
     magnitudesDb.fill (-120.0f);
     smoothedDb.fill (-120.0f);
-    slowSmoothedDb.fill (-120.0f);
+    displayDb.fill (-120.0f);
+    peakHoldDb.fill (-120.0f);
+    peakHoldStartMs.fill (0);
+    peakDb.fill (-120.0f);
+}
+
+void SpectrumAnalyzer::resetPeaks()
+{
+    peakDb.fill (-120.0f);
 }
 
 void SpectrumAnalyzer::pushSamples (const juce::AudioBuffer<float>& buffer,
@@ -108,72 +138,51 @@ void SpectrumAnalyzer::computeSpectrum()
     fft.performFrequencyOnlyForwardTransform (fftWork.data(), true);
 
     // FFT magnitude calibration:
-    // - performFrequencyOnlyForwardTransform returns unnormalized magnitudes.
-    // - A full-scale sine produces magnitude ~ fftSize/2 at its bin.
-    // - The Hann window has a coherent gain of ~0.5, which halves the peak.
-    // - To map "full-scale sine" to 0 dB, we multiply by:
-    //     2.0f (undo window coherent gain) * 2.0f / fftSize (undo FFT scale)
-    //     = 4.0f / fftSize.
-    const float magnitudeScale = 4.0f / (float) fftSize;
+    //
+    // 4.0f / fftSize is the textbook normalisation: a full-scale sine
+    // that lands exactly on a bin would peak at 0 dB.
+    //
+    // In practice, real signals spread across several adjacent bins,
+    // and the wider the FFT (i.e. the narrower each bin), the more the
+    // energy is spread out. That means a full-scale sine peaks well
+    // below 0 dB on an 8192-point FFT. Multiply by 2.0f (i.e. +6 dB)
+    // to compensate, so real material reaches roughly the same heights
+    // on the display as it did at 2048 points.
+    const float magnitudeScale = 20.0f / (float) fftSize;
 
-    // Fast trace ballistics.
+    // Fast trace ballistics (the translucent fill).
     constexpr float attackMs  = 5.0f;
-    constexpr float releaseMs = 200.0f;
-
-    // Slow trace ballistics - the trend line. Asymmetric so transient
-    // hits (e.g. a snare's 200 Hz energy) still register at nearly their
-    // true peak level, while the trace decays slowly afterwards.
-    constexpr float slowAttackMs  = 150.0f;
-    constexpr float slowReleaseMs = 800.0f;
+    constexpr float releaseMs = 350.0f;
 
     // Below this dB level, a trace is considered to be "at the floor".
     constexpr float floorSnapDb = -119.0f;
 
     const float blockSeconds = Display::blockSeconds;
-    const float attackCoeff      = std::exp (-blockSeconds / (attackMs      * 0.001f));
-    const float releaseCoeff     = std::exp (-blockSeconds / (releaseMs     * 0.001f));
-    const float slowAttackCoeff  = std::exp (-blockSeconds / (slowAttackMs  * 0.001f));
-    const float slowReleaseCoeff = std::exp (-blockSeconds / (slowReleaseMs * 0.001f));
+    const float attackCoeff  = std::exp (-blockSeconds / (attackMs  * 0.001f));
+    const float releaseCoeff = std::exp (-blockSeconds / (releaseMs * 0.001f));
 
-    // First pass: compute the raw dB values and detect whether signal has
-    // just returned from silence (whole slow trace was at floor).
-    std::array<float, numBins> rawDb {};
-    bool slowWasAtFloor = true;
-    bool signalIsPresent = false;
+    // Coefficient for the peak-hold release phase.
+    const float peakReleaseCoeff = std::exp (-blockSeconds / (peakReleaseMs * 0.001f));
+
+    // Display trace coefficients (very light smoothing).
+    const float displayAttackCoeff  = std::exp (-blockSeconds / (displayAttackMs  * 0.001f));
+    const float displayReleaseCoeff = std::exp (-blockSeconds / (displayReleaseMs * 0.001f));
+
+    const juce::int64 nowMs = juce::Time::currentTimeMillis();
 
     for (int bin = 0; bin < numBins; ++bin)
     {
         const float rawMag = fftWork[(size_t) bin] * magnitudeScale;
         const float db     = juce::Decibels::gainToDecibels (rawMag, -120.0f);
 
-        rawDb[(size_t) bin] = db;
         magnitudesDb[(size_t) bin] = db;
 
-        if (slowSmoothedDb[(size_t) bin] > floorSnapDb)
-            slowWasAtFloor = false;
-
-        if (db > floorSnapDb)
-            signalIsPresent = true;
-    }
-
-    // If the slow trace was entirely at the floor and signal just appeared,
-    // initialise the slow trace to 0 dB across the whole spectrum. The
-    // smoothing coefficients then pull each bin down to its true value
-    // over the next ~800 ms, producing a "flat line at the top that takes
-    // the shape of the signal" behaviour.
-    const bool snapSlowToTop = slowWasAtFloor && signalIsPresent;
-
-    for (int bin = 0; bin < numBins; ++bin)
-    {
-        const float db = rawDb[(size_t) bin];
-
-        // Fast smoothing (independent state, does not snap to top).
+        // --- Fast smoothing (fill) ---
         {
             const float prev = smoothedDb[(size_t) bin];
 
             if (prev <= floorSnapDb && db > floorSnapDb)
             {
-                // Trace was at the floor; snap straight to the new value.
                 smoothedDb[(size_t) bin] = db;
             }
             else
@@ -183,24 +192,89 @@ void SpectrumAnalyzer::computeSpectrum()
             }
         }
 
-        // Slow smoothing (independent state).
+        // --- Display trace (very light smoothing) ---
         {
-            float prev = slowSmoothedDb[(size_t) bin];
+            const float prev = displayDb[(size_t) bin];
 
-            if (snapSlowToTop)
+            if (prev <= floorSnapDb && db > floorSnapDb)
             {
-                // Start from the top of the graph; converge downward.
-                prev = 0.0f;
+                displayDb[(size_t) bin] = db;
             }
-            else if (prev <= floorSnapDb && db > floorSnapDb)
+            else
             {
-                // Signal returned to a bin that was at the floor (but the
-                // overall slow trace was not fully silent, so no top snap).
-                prev = db;
+                const float coeff = db > prev ? displayAttackCoeff : displayReleaseCoeff;
+                displayDb[(size_t) bin] = db + coeff * (prev - db);
             }
-
-            const float coeff = db > prev ? slowAttackCoeff : slowReleaseCoeff;
-            slowSmoothedDb[(size_t) bin] = db + coeff * (prev - db);
         }
+
+                const float current = displayDb[(size_t) bin];
+
+        // --- Peak-hold line ---
+        {
+            float& heldPeak = peakHoldDb[(size_t) bin];
+            auto&  holdStart = peakHoldStartMs[(size_t) bin];
+
+            if (current > heldPeak + 0.01f)
+            {
+                heldPeak = current;
+                holdStart = nowMs;
+            }
+            else
+            {
+                const juce::int64 elapsed = nowMs - holdStart;
+
+                if (elapsed > (juce::int64) peakHoldMs)
+                {
+                    heldPeak = current + peakReleaseCoeff * (heldPeak - current);
+
+                    if (heldPeak <= floorSnapDb && current <= floorSnapDb)
+                        heldPeak = floorSnapDb;
+                }
+            }
+        }
+
+        // --- Peak-since-reset (tooltip) ---
+        {
+            if (current > peakDb[(size_t) bin])
+                peakDb[(size_t) bin] = current;
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Cross-bin smoothing pass.
+    //
+    // The per-bin values are already temporally smoothed (per bin,
+    // independent history). But at high frequencies the display shows
+    // hundreds of bins packed into a few pixels, and adjacent bins can
+    // be at very different levels — one on a harmonic peak, the next in
+    // a trough. A light moving average across neighbouring bins smooths
+    // the visual envelope without noticeably reducing real peaks.
+    //
+    // Applies only to smoothedDb and peakHoldDb. The display trace is
+    // deliberately left untouched so its detail survives to the renderer.
+    // -----------------------------------------------------------------
+       {
+        std::array<float, numBins> tmpSmoothed {};
+
+        constexpr int halfWindow = 2;
+
+        for (int bin = 0; bin < numBins; ++bin)
+        {
+            const int lo = juce::jmax (0, bin - halfWindow);
+            const int hi = juce::jmin (numBins - 1, bin + halfWindow);
+
+            float sumS = 0.0f;
+            int count = 0;
+
+            for (int b = lo; b <= hi; ++b)
+            {
+                sumS += smoothedDb[(size_t) b];
+                ++count;
+            }
+
+            tmpSmoothed[(size_t) bin] = sumS / (float) count;
+        }
+
+        smoothedDb = tmpSmoothed;
     }
 }

@@ -37,6 +37,7 @@ ReferenceMaxAudioProcessor::ReferenceMaxAudioProcessor()
 
     monoParam   = apvts.getRawParameterValue ("mono");
     swapLRParam = apvts.getRawParameterValue ("swap_lr");
+    autoPauseMinutesParam = apvts.getRawParameterValue ("session_auto_pause_minutes");
 
     apvts.addParameterListener ("listen_mode", this);
     apvts.addParameterListener ("solo_slot", this);
@@ -46,6 +47,7 @@ ReferenceMaxAudioProcessor::ReferenceMaxAudioProcessor()
     apvts.addParameterListener ("filter_high_xover", this);
     apvts.addParameterListener ("mono", this);
     apvts.addParameterListener ("swap_lr", this);
+    apvts.addParameterListener ("session_auto_pause_minutes", this);
 
     for (int i = 0; i < maxReferenceSlots; ++i)
     {
@@ -66,6 +68,7 @@ ReferenceMaxAudioProcessor::~ReferenceMaxAudioProcessor()
     apvts.removeParameterListener ("filter_high_xover", this);
     apvts.removeParameterListener ("mono", this);
     apvts.removeParameterListener ("swap_lr", this);
+    apvts.removeParameterListener ("session_auto_pause_minutes", this);
 
     for (int i = 0; i < maxReferenceSlots; ++i)
     {
@@ -427,6 +430,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout ReferenceMaxAudioProcessor::
         "Swap L/R",
         false));
 
+        // Auto-pause threshold for the session timer. Stored in minutes
+    // (1..60). Read as a raw atomic; the SessionStrip field edits it via
+    // a DraggableValueBox, which is why it lives in the APVTS instead of
+    // inside SessionTimer. SessionTimer caches the value in an atomic
+    // each time it changes — see the parameter listener below.
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { "session_auto_pause_minutes", 1 },
+        "Auto Pause After",
+        1, 60, 5));   // 1..60 minutes, default 5
+
     return layout;
 }
 
@@ -506,6 +519,9 @@ void ReferenceMaxAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
     lastListenModeIndex   = (int) listenMode->load();
     lastRefSourcePhysical = -1;
 
+    lastSessionBpm        = -1.0;   // <-- ADDED
+    lastSessionPosition   = -1.0;   // <-- ADDED
+
     lastKnownDawSeconds.store (-1.0);
 
     for (int i = 0; i < maxReferenceSlots; ++i)
@@ -577,6 +593,22 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    // --- Session tracking: audio activity ---------------------------------
+    // Check the raw input magnitude before any gain, muting, or mode
+    // switching. This answers "is there audio flowing in from the DAW",
+    // which is what the timer cares about, not "is the plugin emitting
+    // sound".
+    {
+        const int n = buffer.getNumSamples();
+        if (n > 0 && buffer.getNumChannels() > 0)
+        {
+            const auto mag = buffer.getMagnitude (0, n);
+            if (mag > 0.005f)
+                sessionTimer.reportAudioActivity();
+        }
+    }
+
+    
     const int filterSoloIndex = (int) filterSolo->load();
     const float lowHz  = filterLowXover->load();
     const float highHz = filterHighXover->load();
@@ -606,6 +638,44 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
             if (auto time = pos->getTimeInSeconds())
                 dawPositionSeconds = *time;
+
+            // --- Session tracking: transport activity --------------------
+            // Three signals count as transport activity:
+            //   1. isPlaying() is true
+            //   2. playhead position advanced since last block
+            //   3. BPM changed since last block
+            // Same rules as Svarog Project Timer.
+            {
+                bool transportActive = false;
+
+                if (dawIsPlaying)
+                    transportActive = true;
+
+                if (dawPositionSeconds >= 0.0
+                    && std::abs (dawPositionSeconds - lastSessionPosition) > 0.001)
+                {
+                    transportActive = true;
+                }
+
+                if (auto bpmOpt = pos->getBpm())
+                {
+                    const double bpm = *bpmOpt;
+                    if (bpm > 0.0
+                        && std::abs (bpm - lastSessionBpm) > 0.01)
+                    {
+                        transportActive = true;
+                    }
+                    lastSessionBpm = bpm;
+                }
+
+
+
+                if (dawPositionSeconds >= 0.0)
+                    lastSessionPosition = dawPositionSeconds;
+
+                if (transportActive)
+                    sessionTimer.reportTransportActivity();
+            }
         }
     }
 
@@ -803,7 +873,6 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     outputMeter.pushSamples (buffer, 0, n);
     lufsMeter.pushSamples (buffer, 0, n);
-
 }
 
 bool ReferenceMaxAudioProcessor::hasEditor() const { return true; }
@@ -832,6 +901,8 @@ void ReferenceMaxAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         state.setProperty ("loopStart_" + juce::String (i), slot.getLoopStartNormalized(), nullptr);
         state.setProperty ("loopEnd_" + juce::String (i), slot.getLoopEndNormalized(), nullptr);
     }
+
+    sessionTimer.writeToTree (state);   // <-- ADDED
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -917,11 +988,34 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
 
         for (int i = 0; i < maxReferenceSlots; ++i)
             slots[(size_t) i]->sendChangeMessage();
+
+        sessionTimer.readFromTree (state);   // <-- ADDED
+
+            // Push the restored minutes value into the SessionTimer. The
+        // parameter listener will also fire as APVTS notifies, but the
+        // order of those notifications isn't guaranteed relative to
+        // readFromTree, so do it explicitly to be certain.
+        if (autoPauseMinutesParam != nullptr)
+        {
+            const int minutes = juce::jlimit (1, 60,
+                juce::roundToInt (autoPauseMinutesParam->load()));
+            sessionTimer.setAutoPauseThresholdMinutes (minutes);
+        }
     }
 }
 
 void ReferenceMaxAudioProcessor::parameterChanged (const juce::String& parameterID, float)
 {
+       if (parameterID == "session_auto_pause_minutes")   // <-- ADDED
+    {
+        if (autoPauseMinutesParam != nullptr)
+        {
+            const int minutes = juce::jlimit (1, 60,
+                juce::roundToInt (autoPauseMinutesParam->load()));
+            sessionTimer.setAutoPauseThresholdMinutes (minutes);
+        }
+        return;
+    }
     if (parameterID == "filter_solo"
         || parameterID == "filter_low_xover"
         || parameterID == "filter_high_xover"
@@ -1034,7 +1128,7 @@ void ReferenceMaxAudioProcessor::syncPlaybackState (bool dawIsPlayingKnown)
         }
         else
         {
-            if (slot.isPlaying() || slot.isPausedByTransport())
+             if (slot.isPlaying() || slot.isPausedByTransport())
                 slot.transportPaused();
         }
     }

@@ -53,6 +53,7 @@ public:
 
     bool isLoaded() const noexcept { return loaded.load(); }
     bool isLoading() const noexcept { return loading.load(); }
+    bool isMissingFile() const noexcept { return missingFile.load(); }   // <-- ADDED
 
     // Measured integrated loudness of the loaded file, in LUFS.
     // -70 means "not measured / silent". Updated asynchronously after
@@ -60,6 +61,7 @@ public:
     float getIntegratedLufs() const noexcept { return integratedLufs.load(); }
 
     juce::File getFile() const;
+    juce::File getMissingFilePath() const; 
     juce::String getStatusText() const;
     double getLengthSeconds() const;
 
@@ -92,10 +94,12 @@ private:
     juce::SpinLock callbackLock;
 
     juce::File currentFile;
+    juce::File missingFilePath;
     juce::String statusText { "Empty" };
 
     std::atomic<bool> loaded { false };
     std::atomic<bool> loading { false };
+    std::atomic<bool> missingFile { false };
     std::atomic<uint32_t> loadToken { 0 };
     std::atomic<float> pendingPosition { -1.0f };
 

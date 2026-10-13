@@ -52,45 +52,70 @@ public:
     // Fires when the user clicks and the active half flips.
     std::function<void(int)> onSelectionChanged;
 
-    void paintButton (juce::Graphics& g,
+       void paintButton (juce::Graphics& g,
                       bool shouldDrawButtonAsHighlighted,
                       bool /*shouldDrawButtonAsDown*/) override
     {
         const auto bounds = getLocalBounds().toFloat().reduced (0.5f);
-        constexpr float cornerRadius = 6.0f;
+        constexpr float cornerRadius = Radius::control;
 
         const int midX = getLocalBounds().getCentreX();
 
         auto leftBounds  = bounds.withRight ((float) midX);
         auto rightBounds = bounds.withLeft ((float) midX);
 
-        // Hover brightening applies to both halves for a unified response.
         const bool hovered = shouldDrawButtonAsHighlighted;
 
-        auto drawHalf = [&] (juce::Rectangle<float> half, bool isActive)
+        // -----------------------------------------------------------------
+        // Fill each half with the same gradient used by the raised buttons.
+        // -----------------------------------------------------------------
+               auto drawHalf = [&] (juce::Rectangle<float> half, bool isActive)
         {
-            const juce::Colour base = isActive ? Theme::accentRed : Theme::panel;
+            const juce::Colour base = isActive ? Theme::accentRed
+                                               : Theme::surfaceCard;
 
-            juce::Colour top, bottom;
-
-            if (hovered)
+            if (isActive)
             {
-                top    = base.brighter (0.10f);
-                bottom = base.darker (0.05f);
+                // Radial glow for the active half.
+                const auto centre = half.getCentre();
+                const auto radius = juce::jmax (half.getWidth(),
+                                                half.getHeight()) * 0.55f;
+
+                const auto glowCentre = juce::Colour (0xffc84040);
+                const auto glowEdge   = base.darker (0.30f);
+
+                juce::ColourGradient glow (glowCentre,
+                                           centre.x, centre.y,
+                                           glowEdge,
+                                           centre.x + radius, centre.y,
+                                           true);
+                g.setGradientFill (glow);
+                g.fillRect (half);
             }
             else
             {
-                top    = base.brighter (0.05f);
-                bottom = base.darker (0.10f);
-            }
+                // Standard vertical gradient for the inactive half.
+                juce::Colour top, bottom;
 
-            juce::ColourGradient grad (top,
-                                       half.getX(), half.getY(),
-                                       bottom,
-                                       half.getX(), half.getBottom(),
-                                       false);
-            g.setGradientFill (grad);
-            g.fillRect (half);
+                if (hovered)
+                {
+                    top    = base.brighter (0.20f);
+                    bottom = base.darker (0.12f);
+                }
+                else
+                {
+                    top    = base.brighter (0.14f);
+                    bottom = base.darker (0.18f);
+                }
+
+                juce::ColourGradient grad (top,
+                                           half.getX(), half.getY(),
+                                           bottom,
+                                           half.getX(), half.getBottom(),
+                                           false);
+                g.setGradientFill (grad);
+                g.fillRect (half);
+            }
         };
 
         {
@@ -103,22 +128,72 @@ public:
             drawHalf (rightBounds, activeIndex == 1);
         }
 
+        // -----------------------------------------------------------------
         // Divider between halves.
+        // -----------------------------------------------------------------
         {
             const float midF = (float) midX;
-            g.setColour (Theme::background.withAlpha (0.7f));
+            g.setColour (juce::Colours::black.withAlpha (0.55f));
             g.drawLine (midF, bounds.getY() + 2.0f,
                         midF, bounds.getBottom() - 2.0f,
                         1.0f);
         }
 
-        // Outer border.
+        // -----------------------------------------------------------------
+        // Top highlight: curved line following the top edge of the whole
+        // button (not each half separately), faded at both ends — same
+        // treatment as the other raised controls.
+        // -----------------------------------------------------------------
         {
-            g.setColour (Theme::panel.brighter (0.15f));
-            g.drawRoundedRectangle (bounds, cornerRadius, 1.0f);
+            const auto r = cornerRadius;
+
+            auto pathBounds = bounds.reduced (1.0f);
+            const float pathR = juce::jmax (0.0f, r - 1.0f);
+
+            juce::Path inner;
+            inner.addRoundedRectangle (pathBounds, pathR);
+
+            juce::Graphics::ScopedSaveState saveInner (g);
+
+            juce::Rectangle<float> topBand (
+                bounds.getX(),
+                bounds.getY(),
+                bounds.getWidth(),
+                5.0f);
+
+            juce::Path band;
+            band.addRectangle (topBand);
+            g.reduceClipRegion (band, {});
+
+            juce::Path outline;
+            juce::PathStrokeType (1.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, inner);
+
+            juce::ColourGradient fade (
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getX(), 0.0f,
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getRight(), 0.0f,
+                false);
+            fade.addColour (0.05, juce::Colours::white.withAlpha (0.30f));
+            fade.addColour (0.50, juce::Colours::white.withAlpha (0.45f));
+            fade.addColour (0.95, juce::Colours::white.withAlpha (0.30f));
+
+            g.setGradientFill (fade);
+            g.fillPath (outline);
         }
 
+        // -----------------------------------------------------------------
+        // Outer dark border, defining the control's edge.
+        // -----------------------------------------------------------------
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+        g.drawRoundedRectangle (bounds, cornerRadius, 1.0f);
+
+        // -----------------------------------------------------------------
         // Labels.
+        // -----------------------------------------------------------------
         {
             g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
 

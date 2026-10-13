@@ -6,6 +6,7 @@
 #include "SpectrumAnalyzer.h"
 #include "LevelMeterSource.h"
 #include "LufsMeter.h"
+#include "SessionTimer.h"        // <-- ADDED
 #include <array>
 #include <atomic>
 #include <memory>
@@ -69,6 +70,8 @@ public:
     LufsMeter& getLufsMeter() noexcept { return lufsMeter; }
     LufsMeter& getDawLufsMeter() noexcept { return dawLufsMeter; }
 
+    SessionTimer& getSessionTimer() noexcept { return sessionTimer; }   // <-- ADDED
+
     float getMatchTargetLufs() const noexcept;
     void setMatchTargetLufs (float lufs);
     float captureMatchTargetFromDaw();
@@ -110,6 +113,7 @@ private:
 
     std::atomic<float>* monoParam   = nullptr;
     std::atomic<float>* swapLRParam = nullptr;
+    std::atomic<float>* autoPauseMinutesParam = nullptr; 
 
     juce::LinearSmoothedValue<float> gainSmoothed;
 
@@ -122,6 +126,8 @@ private:
     LevelMeterSource outputMeter;
     LufsMeter lufsMeter;
     LufsMeter dawLufsMeter;
+
+    SessionTimer sessionTimer;   // <-- ADDED
 
     juce::AudioBuffer<float> refAnalysisBuffer;
 
@@ -155,6 +161,9 @@ private:
     double lastDawPositionSeen     = -1.0;
     int    lastListenModeIndex     = 0;
     int    lastRefSourcePhysical   = -1;
+
+    double lastSessionBpm          = -1.0;   // <-- ADDED
+    double lastSessionPosition     = -1.0;   // <-- ADDED
 
     float refSlotFade     = 1.0f;
     float refSlotFadeStep = 0.0f;
@@ -252,7 +261,7 @@ private:
 
         outFade = env;
 
-        if (isFadingOut && outFade <= 1.0e-6f)
+         if (isFadingOut && outFade <= 1.0e-6f)
         {
             outFade = 0.0f;
 
@@ -260,6 +269,11 @@ private:
             {
                 effectiveIsReferenceMode = (pendingModeChange == 1);
                 pendingModeChange = -1;
+
+                // Integrated loudness is measured per listen. Reset when
+                // the source changes so the value always reflects the
+                // current source only.
+                lufsMeter.reset();
             }
 
             if (pendingTransportStop)

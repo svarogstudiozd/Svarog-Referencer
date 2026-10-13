@@ -31,6 +31,7 @@ public:
     void setLoaded  (bool shouldBeLoaded)  { loaded  = shouldBeLoaded;  repaint(); }
     void setSelected(bool shouldBeSelected){ selected= shouldBeSelected;repaint(); }
     void setLoading (bool shouldBeLoading) { loading = shouldBeLoading; repaint(); }
+    void setMissing (bool shouldBeMissing) { missing = shouldBeMissing; repaint(); } 
 
     std::function<void(int)> onSelected;
     std::function<void(int)> onDeleted;
@@ -47,6 +48,7 @@ private:
     bool loaded   = false;
     bool selected = false;
     bool loading  = false;
+    bool missing  = false;
 
     bool hovered = false;
     bool draggingOver = false;

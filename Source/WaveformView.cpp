@@ -23,7 +23,10 @@ WaveformView::~WaveformView()
 
 juce::Rectangle<float> WaveformView::getWaveformBounds() const
 {
-    auto bounds = getLocalBounds().toFloat().reduced (1.0f);
+    // Outer inset gives a small margin between the well's edge and the
+    // waveform area. A few pixels here means the playhead at position
+    // zero sits visibly inside the well, not flush with its border.
+    auto bounds = getLocalBounds().toFloat().reduced (4.0f, 1.0f);
 
     const float rulerHeight = 20.0f;
     auto waveformBounds = bounds;
@@ -37,8 +40,129 @@ void WaveformView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced (1.0f);
 
-    g.setColour (Theme::panelDarker);
-    g.fillRoundedRectangle (bounds, 4.0f);
+    // Recessed well, matching the crossover value boxes. Dark fill with
+    // a soft inner shadow at the top and a faded inner highlight along
+    // the bottom curve.
+    const float wellRadius = Radius::panel;
+
+    // Base fill — lighter than the deepest surface so the top shadow
+    // has something to darken against, but darker than the panel.
+    g.setColour (Theme::surfaceRaised.darker (0.35f));
+    g.fillRoundedRectangle (bounds, wellRadius);
+
+   
+        // Top inner shadow — multi-stop gradient.
+        const float shadowHeight = 10.0f;
+
+        juce::ColourGradient topShadow (
+            juce::Colours::black.withAlpha (0.0f),
+            bounds.getX(), bounds.getY(),
+            juce::Colours::black.withAlpha (0.0f),
+            bounds.getX(), bounds.getY() + shadowHeight,
+            false);
+
+        topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
+        topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
+        topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
+
+        g.setGradientFill (topShadow);
+        g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
+
+        // Bottom inner highlight — curved line along the bottom edge
+        // and lower corners. Clipped to a band along the bottom so it
+        // doesn't extend up the sides.
+        {
+            juce::Path inner;
+            inner.addRoundedRectangle (bounds.reduced (1.0f),
+                                       juce::jmax (0.0f, wellRadius - 1.0f));
+
+            juce::Path outline;
+            juce::PathStrokeType (1.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, inner);
+
+            // Restrict drawing to a band along the bottom.
+            juce::Graphics::ScopedSaveState saveInner (g);
+
+            juce::Rectangle<float> bottomBand (
+                bounds.getX(),
+                bounds.getBottom() - wellRadius - 0.0f,
+                bounds.getWidth(),
+                wellRadius + 0.0f);
+
+            juce::Path band;
+            band.addRectangle (bottomBand);
+            g.reduceClipRegion (band, {});
+
+            // Solid highlight — no fade at the ends.
+            g.setColour (juce::Colours::white.withAlpha (0.40f));
+            g.fillPath (outline);
+        }
+
+        // Left and right side highlights — faded from nothing at the
+        // top to visible at the bottom, matching the spectrum well.
+        {
+            // Build the stroked outline once — used by both bands.
+            juce::Path inner;
+            inner.addRoundedRectangle (bounds.reduced (1.5f),
+                                       juce::jmax (0.0f, wellRadius - 1.0f));
+
+            juce::Path outline;
+            juce::PathStrokeType (2.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, inner);
+
+            // Vertical gradient: transparent at the top, faint white
+            // in the middle, brighter white at the bottom.
+            juce::ColourGradient fade (
+                juce::Colours::white.withAlpha (0.08f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::white.withAlpha (0.25f),
+                bounds.getX(), bounds.getBottom(),
+                false);
+
+            fade.addColour (0.21, juce::Colours::white.withAlpha (0.15f));
+
+            // Left side band.
+            {
+                juce::Graphics::ScopedSaveState saveLeft (g);
+
+                juce::Rectangle<float> leftBand (
+                    bounds.getX(),
+                    bounds.getY() + wellRadius,
+                    2.0f,
+                    bounds.getHeight() - wellRadius * 2.0f);
+
+                juce::Path band;
+                band.addRectangle (leftBand);
+                g.reduceClipRegion (band, {});
+
+                g.setGradientFill (fade);
+                g.fillPath (outline);
+            }
+
+            // Right side band.
+            {
+                juce::Graphics::ScopedSaveState saveRight (g);
+
+                juce::Rectangle<float> rightBand (
+                    bounds.getRight() - 2.0f,
+                    bounds.getY() + wellRadius,
+                    2.0f,
+                    bounds.getHeight() - wellRadius * 2.0f);
+
+                juce::Path band;
+                band.addRectangle (rightBand);
+                g.reduceClipRegion (band, {});
+
+                g.setGradientFill (fade);
+                g.fillPath (outline);
+            }
+        
+    }
+    
 
     auto& thumbnail = slot.getThumbnail();
 
@@ -140,6 +264,36 @@ void WaveformView::paint (juce::Graphics& g)
 
     g.setColour (Theme::accentRedBright);
     g.drawLine (playheadX, waveformBounds.getY(), playheadX, waveformBounds.getBottom(), 2.0f);
+
+ //==============================================================
+    // Top inner shadow — drawn AFTER the waveform, loop region, and
+    // playhead so it falls over them. Makes the content feel like it's
+    // inside the recess rather than on top of it.
+    //==============================================================
+
+    {
+        juce::Graphics::ScopedSaveState save (g);
+
+        juce::Path clip;
+        clip.addRoundedRectangle (bounds, wellRadius);
+        g.reduceClipRegion (clip, {});
+
+        const float shadowHeight = 10.0f;
+
+        juce::ColourGradient topShadow (
+            juce::Colours::black.withAlpha (0.0f),
+            bounds.getX(), bounds.getY(),
+            juce::Colours::black.withAlpha (0.0f),
+            bounds.getX(), bounds.getY() + shadowHeight,
+            false);
+
+        topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
+        topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
+        topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
+
+        g.setGradientFill (topShadow);
+        g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
+    }
 
     //==============================================================
     // Ruler

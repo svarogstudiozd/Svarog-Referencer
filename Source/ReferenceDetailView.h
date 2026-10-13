@@ -7,6 +7,7 @@
 #include "Theme.h"
 #include <memory>
 #include <functional>
+#include "GainSlider.h"
 
 class ReferenceDetailView : public juce::Component,
                             public juce::FileDragAndDropTarget,
@@ -33,6 +34,8 @@ public:
     void openChooserForCurrentSlot();
 
     void refresh();
+
+    void paintOverChildren (juce::Graphics& g) override;
 
 private:
     // A TextButton that also fires a callback on double-click. Used by the
@@ -64,6 +67,7 @@ private:
     void updateGainFromParameter();
     void pushGainToParameter (double newValueDb);
     void toggleFollow();
+    void loadFilesIntoSlots (const juce::Array<juce::File>& files, int startLogicalSlot);
 
     // Format a dB value as "±X.X dB". Shared by the two functions that
     // write to gainValueLabel.
@@ -105,8 +109,8 @@ private:
     juce::TextButton followButton { "Follow" };
     DoubleClickableButton matchButton;
     DoubleClickableButton offsetButton { "Offset" };
-
-    juce::Slider gainSlider;
+    GainSlider gainSlider;
+  
     juce::Label  gainLabel;
     juce::Label  gainValueLabel;
 

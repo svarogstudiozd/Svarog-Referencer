@@ -1,5 +1,6 @@
 #include "LufsMeterComponent.h"
 #include "Theme.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 namespace
 {
@@ -111,11 +112,125 @@ juce::String LufsMeterComponent::currentLabel() const
 
 void LufsMeterComponent::paint (juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat();
+       auto bounds = getLocalBounds().toFloat();
 
-    g.setColour (Theme::panelDarker);
-    g.fillRoundedRectangle (bounds, 6.0f);
+    const float wellRadius = Radius::well;
 
+  // Dark fill.
+    g.setColour (juce::Colour (0xff4a1f1f));
+    g.fillRoundedRectangle (bounds, wellRadius);
+
+    // Inner shadow all around the edges, plus the bottom highlight.
+    // All drawn inside a clip so the shadow doesn't spill outside the
+    // rounded shape.
+    {
+        juce::Graphics::ScopedSaveState save (g);
+
+        juce::Path clip;
+        clip.addRoundedRectangle (bounds, wellRadius);
+        g.reduceClipRegion (clip, {});
+
+        // --- Inner shadow, four soft bands ---
+        const float shadowDepth = 22.0f;
+
+        // Top band — dark at the top edge, fading downward.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.55f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getY() + shadowDepth,
+                false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getX(),
+                                                bounds.getY(),
+                                                bounds.getWidth(),
+                                                shadowDepth));
+        }
+
+        // Bottom band — dark at the bottom edge, fading upward.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.35f),
+                bounds.getX(), bounds.getBottom(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getBottom() - shadowDepth,
+                false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getX(),
+                                                bounds.getBottom() - shadowDepth,
+                                                bounds.getWidth(),
+                                                shadowDepth));
+        }
+
+        // Left band.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.45f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX() + shadowDepth, bounds.getY(),
+                false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getX(),
+                                                bounds.getY(),
+                                                shadowDepth,
+                                                bounds.getHeight()));
+        }
+
+        // Right band.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.45f),
+                bounds.getRight(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getRight() - shadowDepth, bounds.getY(),
+                false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getRight() - shadowDepth,
+                                                bounds.getY(),
+                                                shadowDepth,
+                                                bounds.getHeight()));
+        }
+
+        // --- Bottom highlight (on top of the shadow) ---
+        {
+            juce::Graphics::ScopedSaveState saveInner (g);
+
+            juce::Rectangle<float> bottomBand (
+                bounds.getX(),
+                bounds.getBottom() - wellRadius - 0.0f,
+                bounds.getWidth(),
+                wellRadius + 0.0f);
+
+            juce::Path band;
+            band.addRectangle (bottomBand);
+            g.reduceClipRegion (band, {});
+
+            juce::Path inner;
+            inner.addRoundedRectangle (bounds.reduced (1.0f),
+                                       juce::jmax (0.0f, wellRadius - 1.0f));
+
+            juce::Path outline;
+            juce::PathStrokeType (1.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, inner);
+
+            juce::ColourGradient fade (
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getX(), 0.0f,
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getRight(), 0.0f,
+                false);
+            fade.addColour (0.04, juce::Colours::white.withAlpha (0.35f));
+            fade.addColour (0.50, juce::Colours::white.withAlpha (0.45f));
+            fade.addColour (0.96, juce::Colours::white.withAlpha (0.35f));
+
+            g.setGradientFill (fade);
+            g.fillPath (outline);
+        }
+    }
     auto inner = bounds.reduced (4.0f, 4.0f);
 
     auto valueStrip = inner.removeFromTop (20.0f);
@@ -133,7 +248,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     g.setColour (Theme::inset);
     g.fillRoundedRectangle (bar, 2.0f);
 
-    const bool isSilent = displayedLufs <= -39.5f;
+        const bool isSilent = displayedLufs <= -39.5f;
     const float norm = normFromLufs (displayedLufs, minLufs, maxLufs);
 
     if (norm > 0.0001f)
@@ -142,16 +257,22 @@ void LufsMeterComponent::paint (juce::Graphics& g)
         auto fillArea = bar.withHeight (fillHeight)
                            .withY (bar.getBottom() - fillHeight);
 
-        juce::ColourGradient grad (Theme::greyDim,
-                                   bar.getX(), bar.getBottom(),
-                                   Theme::accentRedBright,
-                                   bar.getX(), bar.getY(),
-                                   false);
-        grad.addColour (0.7, Theme::greyLight);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (fillArea, 2.0f);
-    }
+        // Same gradient as the RMS meter: dark red at the bottom,
+        // saturated light red at the top.
+        juce::ColourGradient grad (
+            juce::Colour (0xff6b2020),   // dark red at bottom
+            bar.getX(), fillArea.getBottom(),
+            juce::Colour (0xffd0a8a8),   // light red at top
+            bar.getX(), fillArea.getY(),
+            false);
 
+        g.setGradientFill (grad);
+        g.fillRect (fillArea);
+
+        // Thin bright line at the top of the fill.
+        g.setColour (juce::Colour (0xfffff0f0));
+        g.fillRect (bar.getX(), fillArea.getY(), bar.getWidth(), 1.5f);
+    }
     // Reference lines at -14 and -9
     {
         const float refs[] = { -14.0f, -9.0f };
@@ -205,8 +326,5 @@ void LufsMeterComponent::paint (juce::Graphics& g)
                           1);
     }
 
-    // The bottom label is now the modeButton, drawn by the LookAndFeel.
 
-    g.setColour (Theme::borderSubtle);
-    g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.0f);
 }

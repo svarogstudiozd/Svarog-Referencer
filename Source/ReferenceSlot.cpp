@@ -154,7 +154,10 @@ void ReferenceSlot::reset()
         thumbnail.setSource (nullptr);
 
         currentFile = juce::File();
+        missingFilePath = juce::File();
         statusText = "Empty";
+
+        missingFile.store (false);
 
         pendingPosition.store (-1.0f);
 
@@ -182,13 +185,46 @@ void ReferenceSlot::reset()
 
 void ReferenceSlot::loadFileAsync (const juce::File& file)
 {
+    // If the file doesn't exist (deleted, moved, external drive
+    // unmounted, etc.), record the intent so the tile and detail view
+    // can surface a "missing file" state and offer to relink.
     if (! file.existsAsFile())
+    {
+        const auto token = ++loadToken;
+
+        loading.store (false);
+        loaded.store (false);
+        missingFile.store (true);
+
+        {
+            const juce::SpinLock::ScopedLockType lock (callbackLock);
+
+            transport.stop();
+            transport.setSource (nullptr);
+            readerSource.reset();
+            thumbnail.setSource (nullptr);
+
+            currentFile = juce::File();
+            missingFilePath = file;
+            statusText = "Missing: " + file.getFileName();
+            pendingPosition.store (-1.0f);
+            integratedLufs.store (-70.0f);
+
+            transport.start();
+            transportRunning.store (true);
+        }
+
+        juce::ignoreUnused (token);
+        sendChangeMessage();
         return;
+    }
 
     const auto token = ++loadToken;
 
     loading.store (true);
     loaded.store (false);
+    missingFile.store (false);
+    missingFilePath = juce::File();
     integratedLufs.store (-70.0f);
 
     statusText = "Loading " + file.getFileName() + "...";
@@ -257,6 +293,7 @@ void ReferenceSlot::finishLoad (const juce::File& file,
 
     loaded.store (true);
     loading.store (false);
+    missingFile.store (false);
 
     statusText = file.getFileName();
 
@@ -604,6 +641,11 @@ float ReferenceSlot::getLoopEndNormalized() const
 juce::File ReferenceSlot::getFile() const
 {
     return currentFile;
+}
+
+juce::File ReferenceSlot::getMissingFilePath() const   // <-- ADDED
+{
+    return missingFilePath;
 }
 
 juce::String ReferenceSlot::getStatusText() const

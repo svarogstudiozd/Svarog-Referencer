@@ -1,5 +1,6 @@
 #include "SlotGrid.h"
 #include "Theme.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 //==============================================================================
 // Ghost "+ Add" tile
@@ -132,6 +133,7 @@ void SlotGrid::refresh()
         tile.setStatusText (slot.getStatusText());
         tile.setLoaded (slot.isLoaded());
         tile.setLoading (slot.isLoading());
+        tile.setMissing (slot.isMissingFile()); 
         tile.setSelected (i == selected);
     }
 
@@ -197,6 +199,18 @@ void SlotGrid::resized()
         if (row < rows - 1)
             area.removeFromTop (tileGapY);
     }
+}
+
+void SlotGrid::forEachVisibleTileBounds (const std::function<void (juce::Rectangle<float>)>& fn) const
+{
+    for (auto& tile : tiles)
+    {
+        if (tile != nullptr && tile->isVisible())
+            fn (tile->getBounds().toFloat());
+    }
+
+    if (ghostTile != nullptr && ghostTile->isVisible())
+        fn (ghostTile->getBounds().toFloat());
 }
 
 //==============================================================================

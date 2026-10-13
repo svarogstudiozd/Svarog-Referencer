@@ -6,11 +6,9 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
       processorRef (p),
       filterBar (p.apvts),
       detailView (p),
-      slotGrid (p)
+      slotGrid (p),
+      sessionStrip (p.getSessionTimer(), p.apvts)
 {
-    // Apply the custom LookAndFeel to this editor. All child components
-    // (buttons, sliders, etc.) that don't have their own LookAndFeel set
-    // will inherit this.
     setLookAndFeel (&customLookAndFeel);
 
     auto& lf = getLookAndFeel();
@@ -47,6 +45,10 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     spectrumDisplay.setAnalyzers (&processorRef.getDawAnalyzer(),
                                   &processorRef.getRefAnalyzer());
     spectrumDisplay.setApvts (&processorRef.apvts);
+    spectrumDisplay.onExpandToggled = [this] (bool shouldExpand)
+    {
+        setExpanded (shouldExpand);
+    };
     addAndMakeVisible (spectrumDisplay);
 
     vuMeter.setSource (&processorRef.getOutputMeter());
@@ -59,6 +61,7 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
 
     addAndMakeVisible (detailView);
     addAndMakeVisible (slotGrid);
+    addAndMakeVisible (sessionStrip);
 
     slotGrid.onGhostClicked = [this]
     {
@@ -97,6 +100,8 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     updateResizeLimits();
 
     setSize (920, computeHeightForSlots (initialSlots));
+
+    applyVisibilityForCurrentMode();
 }
 
 ReferenceMaxAudioProcessorEditor::~ReferenceMaxAudioProcessorEditor()
@@ -122,7 +127,8 @@ int ReferenceMaxAudioProcessorEditor::computeHeightForSlots (int numSlots)
       + spectrumHeight + gap
       + filterBarHeight + gap
       + detailHeight + gap
-      + outerPadding;
+      + outerPadding
+      + sessionStripHeight + gap;
 
     const int gridHeight = SlotGrid::preferredHeightFor (numSlots);
 
@@ -163,10 +169,98 @@ void ReferenceMaxAudioProcessorEditor::resizeToFitSlotsDeferred()
 }
 
 //==============================================================================
+// Expanded mode
+
+void ReferenceMaxAudioProcessorEditor::setExpanded (bool shouldBeExpanded)
+{
+    expanded = shouldBeExpanded;
+
+    // Keep the button state in sync in case this was triggered by
+    // anything other than the button itself.
+    spectrumDisplay.setExpanded (expanded);
+
+    applyVisibilityForCurrentMode();
+    resized();
+    repaint();
+}
+
+void ReferenceMaxAudioProcessorEditor::applyVisibilityForCurrentMode()
+{
+    // Expanded: hide the chrome between the header and the slot grid.
+    // Header, spectrum, slot grid, and session strip stay visible.
+    const bool showChrome = ! expanded;
+
+    titleLabel.setVisible (true);
+    subtitleLabel.setVisible (true);
+    modeButton.setVisible (true);
+
+    vuMeter.setVisible (showChrome);
+    lufsMeter.setVisible (showChrome);
+    filterBar.setVisible (showChrome);
+    detailView.setVisible (showChrome);
+
+    spectrumDisplay.setVisible (true);
+    slotGrid.setVisible (true);
+    sessionStrip.setVisible (true);
+}
+
+//==============================================================================
 
 void ReferenceMaxAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (Theme::background);
+
+    // Draw shadows for the main panels. The panels themselves cannot
+    // draw outside their own bounds — JUCE clips them — so we draw the
+    // shadows here, in the parent, where there's room.
+    if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+    {
+        if (filterBar.isVisible())
+            lf->drawPanelShadow (g, filterBar.getBounds().toFloat());
+
+        if (detailView.isVisible())
+            lf->drawPanelShadow (g, detailView.getBounds().toFloat());
+
+               // Regular shadow under the whole toggle.
+        lf->drawControlShadow (g, modeButton.getBounds().toFloat());
+
+        // Red glow around the active half only.
+        {
+            const auto toggleBounds = modeButton.getBounds().toFloat();
+            const int midX = modeButton.getLocalBounds().getCentreX();
+
+            // Compute the active half's bounds in editor coordinates.
+            juce::Rectangle<float> activeHalf;
+
+            if (modeButton.getActiveIndex() == 0)
+            {
+                // DAW is active: left half.
+                activeHalf = toggleBounds.withRight (toggleBounds.getX()
+                                                    + (float) midX);
+            }
+            else
+            {
+                // Reference is active: right half.
+                activeHalf = toggleBounds.withLeft (toggleBounds.getX()
+                                                   + (float) midX);
+            }
+
+            lf->drawControlGlow (g, activeHalf);
+        }
+
+        // Shadows for the slot tiles. Drawn from the editor (which has
+        // more room) instead of the grid (which would clip them at its
+        // own bounds).
+        const auto gridOffset = slotGrid.getPosition();
+
+        slotGrid.forEachVisibleTileBounds ([&] (juce::Rectangle<float> tileBoundsInGrid)
+        {
+            tileBoundsInGrid.translate ((float) gridOffset.x, (float) gridOffset.y);
+            lf->drawTileShadow (g, tileBoundsInGrid);
+        });
+    }
+
+    
 }
 
 void ReferenceMaxAudioProcessorEditor::resized()
@@ -182,29 +276,50 @@ void ReferenceMaxAudioProcessorEditor::resized()
 
     bounds.removeFromTop (gap);
 
-    auto topRow = bounds.removeFromTop (spectrumHeight);
+    // --- Bottom rows: always the same in both modes ---
+    //
+    // We take the slot grid and session strip off the bottom first, so
+    // the expanded spectrum gets exactly the space that's left.
 
-    // Two meters on the right of the spectrum. Wider than before so the
-    // LUFS mode button (labelled "LUFS-S/M/I") fits comfortably.
-    auto vuArea = topRow.removeFromRight (meterWidth);
-    topRow.removeFromRight (meterGap);
+    auto stripArea = bounds.removeFromBottom (sessionStripHeight);
+    bounds.removeFromBottom (gap);
+    sessionStrip.setBounds (stripArea);
 
-    auto lufsArea = topRow.removeFromRight (meterWidth);
-    topRow.removeFromRight (meterGap);
+    const int numSlots = processorRef.getNumVisibleSlots();
+    const int gridHeight = SlotGrid::preferredHeightFor (numSlots);
 
-    spectrumDisplay.setBounds (topRow);
-    lufsMeter.setBounds (lufsArea);
-    vuMeter.setBounds (vuArea);
+    auto gridArea = bounds.removeFromBottom (gridHeight);
+    bounds.removeFromBottom (gap);
+    slotGrid.setBounds (gridArea);
 
-    bounds.removeFromTop (gap);
+    // --- Top area: depends on expanded state ---
 
-    filterBar.setBounds (bounds.removeFromTop (filterBarHeight));
-    bounds.removeFromTop (gap);
+    if (expanded)
+    {
+        // Spectrum fills everything above the slot grid.
+        spectrumDisplay.setBounds (bounds);
+    }
+    else
+    {
+        auto topRow = bounds.removeFromTop (spectrumHeight);
 
-    detailView.setBounds (bounds.removeFromTop (detailHeight));
-    bounds.removeFromTop (gap);
+        auto vuArea = topRow.removeFromRight (meterWidth);
+        topRow.removeFromRight (meterGap);
 
-    slotGrid.setBounds (bounds);
+        auto lufsArea = topRow.removeFromRight (meterWidth);
+        topRow.removeFromRight (meterGap);
+
+         spectrumDisplay.setBounds (topRow.reduced (1, 0));
+        lufsMeter.setBounds (lufsArea);
+        vuMeter.setBounds (vuArea);
+
+        bounds.removeFromTop (gap);
+
+        filterBar.setBounds (bounds.removeFromTop (filterBarHeight));
+        bounds.removeFromTop (gap);
+
+        detailView.setBounds (bounds.removeFromTop (detailHeight));
+    }
 }
 
 //==============================================================================
@@ -254,11 +369,6 @@ void ReferenceMaxAudioProcessorEditor::parameterChanged (const juce::String& par
         }
         else if (parameterID == "num_visible_slots")
         {
-            // A slot was added or removed. The solo_slot parameter may
-            // or may not have changed value as a result, so we cannot
-            // rely on the solo_slot handler running. Re-call setSlot so
-            // the detail view notices when the physical slot behind
-            // the current logical index has changed, then refresh.
             safe->detailView.setSlot (safe->processorRef.getSoloSlot());
             safe->slotGrid.refresh();
             safe->detailView.refresh();
@@ -286,6 +396,8 @@ void ReferenceMaxAudioProcessorEditor::updateModeButtons()
 {
     const auto ref = processorRef.isListeningToReference();
     modeButton.setActiveIndex (ref ? 1 : 0);
+
+    repaint();
 }
 
 void ReferenceMaxAudioProcessorEditor::setListenMode (int modeIndex)

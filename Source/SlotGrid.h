@@ -31,6 +31,8 @@ public:
 
     std::function<void()> onGhostClicked;
 
+    void forEachVisibleTileBounds (const std::function<void (juce::Rectangle<float>)>& fn) const;
+
 private:
     class GhostAddTile;
 

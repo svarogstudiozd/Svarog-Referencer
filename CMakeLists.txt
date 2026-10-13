@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(SvarogReferencer VERSION 0.1.0 LANGUAGES C CXX)
+project(SvarogReferencerPlus VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,9 +15,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(juce)
 
-juce_add_plugin(SvarogReferencer
+juce_add_plugin(SvarogReferencerPlus
     COMPANY_NAME "Svarog Studio"
-    BUNDLE_ID com.svarogstudio.referencer
+    BUNDLE_ID com.svarogstudio.referencerplus
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -25,12 +25,12 @@ juce_add_plugin(SvarogReferencer
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
     PLUGIN_MANUFACTURER_CODE SvrG
-    PLUGIN_CODE Sref
-    FORMATS AU VST3
-    PRODUCT_NAME "Svarog Referencer"
+    PLUGIN_CODE Srfp
+    FORMATS AU VST3 Standalone
+    PRODUCT_NAME "Svarog Referencer +"
 )
 
-target_sources(SvarogReferencer
+target_sources(SvarogReferencerPlus
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginProcessor.h
@@ -66,10 +66,15 @@ target_sources(SvarogReferencer
         Source/LufsMeterComponent.h
         Source/DraggableValueBox.cpp
         Source/DraggableValueBox.h
+        Source/GainSlider.h 
         Source/Theme.h
+        Source/SessionTimer.h
+        Source/SessionTimer.cpp
+        Source/SessionStrip.h       # <-- ADDED
+        Source/SessionStrip.cpp     # <-- ADDED
 )
 
-target_compile_definitions(SvarogReferencer
+target_compile_definitions(SvarogReferencerPlus
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
@@ -77,7 +82,7 @@ target_compile_definitions(SvarogReferencer
         JUCE_USE_MP3AUDIOFORMAT=1
 )
 
-target_link_libraries(SvarogReferencer
+target_link_libraries(SvarogReferencerPlus
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp

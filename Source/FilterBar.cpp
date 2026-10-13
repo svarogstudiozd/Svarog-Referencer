@@ -1,5 +1,6 @@
 #include "FilterBar.h"
 #include "Theme.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     : apvtsRef (apvts),
@@ -37,6 +38,7 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     auto setupUtilityButton = [this] (juce::TextButton& b)
     {
         b.setClickingTogglesState (true);
+        b.onClick = [this] { repaint(); };
         addAndMakeVisible (b);
     };
 
@@ -63,10 +65,45 @@ FilterBar::~FilterBar()
 void FilterBar::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
-    g.setColour (Theme::panel);
-    g.fillRoundedRectangle (bounds, 8.0f);
-    g.setColour (Theme::borderSubtle);
-    g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+
+    // Raised panel: drop shadow underneath, filled rounded rect, and a
+    // subtle highlight line along the top edge.
+    if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+        lf->drawPanel (g, bounds, Theme::surfaceRaised);
+    else
+    {
+        // Fallback if the LookAndFeel isn't ours (shouldn't happen).
+        g.setColour (Theme::surfaceRaised);
+        g.fillRoundedRectangle (bounds, Radius::panel);
+    }
+
+        // Shadows for child buttons, drawn here because the buttons
+    // themselves can't draw outside their own bounds.
+       if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+    {
+        const auto shadow = [&] (juce::Component& c)
+        {
+            if (! c.isEnabled())
+                return;
+
+            if (auto* button = dynamic_cast<juce::Button*> (&c))
+            {
+                if (button->getToggleState())
+                {
+                    lf->drawActiveControlShadow (g, c.getBounds().toFloat());
+                    return;
+                }
+            }
+
+            lf->drawControlShadow (g, c.getBounds().toFloat());
+        };
+
+        shadow (lowButton);
+        shadow (midButton);
+        shadow (highButton);
+        shadow (monoButton);
+        shadow (swapButton);
+    }
 }
 
 void FilterBar::resized()
@@ -166,4 +203,5 @@ void FilterBar::toggleSoloChoice (int choice)
         p->setValueNotifyingHost (p->convertTo0to1 ((float) newValue));
         p->endChangeGesture();
     }
+    repaint(); 
 }

@@ -1,5 +1,6 @@
 #include "SlotTile.h"
 #include "Theme.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 //==============================================================================
 // Nested custom × button - self-contained hover handling.
@@ -79,20 +80,54 @@ void SlotTile::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    juce::Colour bg;
+    // Get the LookAndFeel so we can use the shared depth helpers.
+    auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel());
+
+
+    // Determine the base fill colour for this tile, based on state.
+    juce::Colour base;
+
     if (selected)
-        bg = Theme::panelHover;
+        base = Theme::surfaceHover.interpolatedWith (Theme::accentRed, 0.25f);
     else if (hovered || draggingOver)
-        bg = Theme::panel;
+        base = Theme::surfaceCard.darker (0.25f).brighter (0.02f);
     else
-        bg = Theme::background.brighter (0.04f);
+        base = Theme::surfaceCard.darker (0.25f);
 
-    g.setColour (bg);
-    g.fillRoundedRectangle (bounds, 6.0f);
-
-    if (loaded)
+    // Selected tiles use a radial centre-bright fill with a red
+    // centre. Everything else uses the standard raised-control fill.
+    if (selected && lf != nullptr)
     {
-        g.setColour (Theme::accentRed.withAlpha (selected ? 1.0f : 0.7f));
+        const auto centre = bounds.getCentre();
+        const auto radius = juce::jmax (bounds.getWidth(),
+                                        bounds.getHeight()) * 0.55f;
+
+        const auto glowCentre = Theme::accentRed.brighter (0.15f);
+        const auto glowEdge   = base.darker (0.40f);
+
+        juce::ColourGradient glow (glowCentre,
+                                   centre.x, centre.y,
+                                   glowEdge,
+                                   centre.x + radius, centre.y,
+                                   true);
+        g.setGradientFill (glow);
+        g.fillRoundedRectangle (bounds, Radius::control);
+    }
+    else if (lf != nullptr)
+    {
+        lf->drawRaisedControl (g, bounds, base, hovered || draggingOver, false, false);
+    }
+    else
+    {
+        g.setColour (base);
+        g.fillRoundedRectangle (bounds, Radius::control);
+    }
+    // Left accent bar for loaded tiles.
+    if (loaded || missing)
+    {
+        const auto indicatorColour = missing ? Theme::accentRedBright
+                                             : Theme::accentRed;
+        g.setColour (indicatorColour.withAlpha (selected ? 1.0f : 0.7f));
         g.fillRoundedRectangle (
             juce::Rectangle<float> (bounds.getX() + 1.0f,
                                     bounds.getY() + 5.0f,
@@ -101,31 +136,37 @@ void SlotTile::paint (juce::Graphics& g)
             2.0f);
     }
 
+    // Border: selected tiles get the accent, others get a subtle outline.
     if (selected)
     {
         g.setColour (Theme::accentRedBright.withAlpha (0.8f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.5f);
+        g.drawRoundedRectangle (bounds.reduced (0.5f), Radius::control, 1.5f);
     }
     else
     {
         g.setColour (Theme::borderSubtle);
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.0f);
+        g.drawRoundedRectangle (bounds.reduced (0.5f), Radius::control, 1.0f);
     }
 
+    // --- Text ---
     auto textArea = getLocalBounds().reduced (10, 0);
     textArea.removeFromRight (24);
 
     auto refArea = textArea.removeFromLeft (48);
     g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
-    g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
     g.drawFittedText ("REF " + juce::String (logical + 1),
                       refArea,
                       juce::Justification::centredLeft,
                       1);
 
-    // Filename - bigger and brighter for better readability.
-    g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
-    g.setFont (juce::FontOptions (13.5f));
+    // Filename — red for missing files, otherwise normal.
+    if (missing)
+        g.setColour (Theme::accentRedBright);
+    else
+        g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
+
+    g.setFont (juce::FontOptions (Typography::bodySize));
 
     juce::String display = status;
     if (loading)
