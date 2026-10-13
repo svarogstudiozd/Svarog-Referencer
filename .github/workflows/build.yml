@@ -24,8 +24,8 @@ jobs:
       - name: Upload Windows VST3
         uses: actions/upload-artifact@v4
         with:
-          name: SvarogReferencer-Windows-VST3
-          path: build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3
+          name: SvarogReferencerPlus-Windows-VST3
+          path: build/SvarogReferencerPlus_artefacts/Release/VST3/Svarog Referencer +.vst3
           if-no-files-found: error
 
   build-macos:
@@ -51,23 +51,23 @@ jobs:
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
 
           # Copy the built bundles into the staging directory
-          cp -R "build/SvarogReferencer_artefacts/Release/AU/Svarog Referencer.component" \
+          cp -R "build/SvarogReferencerPlus_artefacts/Release/AU/Svarog Referencer +.component" \
                 "pkg_root/Library/Audio/Plug-Ins/Components/"
-          cp -R "build/SvarogReferencer_artefacts/Release/VST3/Svarog Referencer.vst3" \
+          cp -R "build/SvarogReferencerPlus_artefacts/Release/VST3/Svarog Referencer +.vst3" \
                 "pkg_root/Library/Audio/Plug-Ins/VST3/"
 
           # Build the .pkg installer, installing the staged tree at /
           pkgbuild --root pkg_root \
-                   --identifier "com.svarogstudio.referencer" \
+                   --identifier "com.svarogstudio.referencerplus" \
                    --version "1.0.0" \
                    --install-location "/" \
-                   "Svarog Referencer.pkg"
+                   "Svarog Referencer +.pkg"
 
-          ls -la "Svarog Referencer.pkg"
+          ls -la "Svarog Referencer +.pkg"
 
       - name: Upload macOS Installer
         uses: actions/upload-artifact@v4
         with:
-          name: SvarogReferencer-macOS-Installer
-          path: Svarog Referencer.pkg
+          name: SvarogReferencerPlus-macOS-Installer
+          path: Svarog Referencer +.pkg
           if-no-files-found: error
