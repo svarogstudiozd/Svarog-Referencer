@@ -25,6 +25,7 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     {
         b.setClickingTogglesState (false);
         b.onClick = [this, choice] { toggleSoloChoice (choice); };
+        b.getProperties().set ("fontSize", 12.0f);
         addAndMakeVisible (b);
     };
 
@@ -39,6 +40,7 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     {
         b.setClickingTogglesState (true);
         b.onClick = [this] { repaint(); };
+        b.getProperties().set ("fontSize", 12.0f);
         addAndMakeVisible (b);
     };
 
@@ -104,6 +106,8 @@ void FilterBar::paint (juce::Graphics& g)
         shadow (monoButton);
         shadow (swapButton);
     }
+
+
 }
 
 void FilterBar::resized()
@@ -113,7 +117,7 @@ void FilterBar::resized()
     titleLabel.setBounds (bounds.removeFromLeft (44));
     bounds.removeFromLeft (6);
 
-    const int buttonWidth = 52;
+    const int buttonWidth = 78;
     const int buttonGap   = 4;
 
     lowButton .setBounds (bounds.removeFromLeft (buttonWidth));
@@ -131,7 +135,7 @@ void FilterBar::resized()
     bounds.removeFromLeft (boxGap);
     highXoverBox.setBounds (bounds.removeFromLeft (boxWidth));
 
-    const int utilWidth = 70;
+    const int utilWidth = 78;
     const int utilGap   = 6;
 
     auto rightArea = bounds.removeFromRight (utilWidth * 2 + utilGap);

@@ -46,7 +46,7 @@ private:
     {
         if (std::abs (current - target) < 0.001f)
         {
-            if (current != target)
+        if (std::abs(current - target) > 0.0001f)
             {
                 current = target;
                 getProperties().set ("hoverAlpha", current);

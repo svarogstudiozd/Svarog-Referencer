@@ -64,6 +64,10 @@ namespace Theme
     // Deep red — gradient ends, pressed states.
     inline const juce::Colour accentRedDeep   { 0xff4a1f1f };
 
+    // Warning amber — used for missing files and warnings that need
+    // to stand out against red backgrounds.
+    inline const juce::Colour warningAmber  { 0xffffb347 }; 
+
     //==========================================================================
     // Greys (structural — used for backgrounds, indicators, neutral fills)
     //==========================================================================
@@ -172,7 +176,7 @@ namespace Shadow
     // Card shadow: controls inside panels (buttons).
     static constexpr int   cardOffsetY   = 3;
     static constexpr int   cardBlur      = 3;
-    static constexpr float cardAlpha     = 0.30;
+    static constexpr float cardAlpha     = 0.30f;
 
     // Tile shadow: slot tiles. Darker than card shadow so the tiles
     // read as more substantial than buttons.

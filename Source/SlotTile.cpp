@@ -76,6 +76,14 @@ SlotTile::~SlotTile() = default;
 
 //==============================================================================
 
+void SlotTile::updateStatus()
+{
+    // Force the parent (SlotGrid) to refresh this tile's data 
+    // if it has a callback for it, or simply repaint if 
+    // the parent updates the internal variables.
+    repaint();
+}
+
 void SlotTile::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
@@ -160,11 +168,14 @@ void SlotTile::paint (juce::Graphics& g)
                       juce::Justification::centredLeft,
                       1);
 
-    // Filename — red for missing files, otherwise normal.
+        // Filename — bright white for selected tiles, red for missing files, 
+    // otherwise the standard light/dim grey based on load state.
     if (missing)
-        g.setColour (Theme::accentRedBright);
+        g.setColour (Theme::warningAmber);
+    else if (selected)
+        g.setColour (juce::Colours::white);
     else
-        g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
+        g.setColour (loaded ? Theme::greyLight : Theme::textPrimary);
 
     g.setFont (juce::FontOptions (Typography::bodySize));
 

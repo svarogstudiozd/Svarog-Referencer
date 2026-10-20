@@ -2,49 +2,7 @@
 #include "Theme.h"
 #include "ReferenceMaxLookAndFeel.h"
 
-//==============================================================================
-// Ghost "+ Add" tile
-//==============================================================================
 
-class SlotGrid::GhostAddTile : public juce::Component
-{
-public:
-    GhostAddTile()
-    {
-        setInterceptsMouseClicks (true, false);
-    }
-
-    std::function<void()> onClick;
-
-    void paint (juce::Graphics& g) override
-    {
-        auto bounds = getLocalBounds().toFloat();
-
-        g.setColour (hovered ? Theme::panelHover : Theme::background.brighter (0.04f));
-        g.fillRoundedRectangle (bounds, 6.0f);
-
-        g.setColour (Theme::accentRed.withAlpha (hovered ? 0.8f : 0.5f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.0f);
-
-        g.setColour (hovered ? Theme::greyLight : Theme::textSecondary);
-        g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-        g.drawFittedText ("+  Add reference", getLocalBounds(), juce::Justification::centred, 1);
-    }
-
-    void mouseEnter (const juce::MouseEvent&) override { hovered = true;  repaint(); }
-    void mouseExit  (const juce::MouseEvent&) override { hovered = false; repaint(); }
-
-    void mouseDown (const juce::MouseEvent&) override
-    {
-        if (onClick != nullptr)
-            onClick();
-    }
-
-private:
-    bool hovered = false;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostAddTile)
-};
 
 //==============================================================================
 // SlotGrid
@@ -79,15 +37,11 @@ SlotGrid::SlotGrid (ReferenceMaxAudioProcessor& p)
         };
 
         addChildComponent (*tiles[(size_t) i]);
+
+        processor.getSlot(i).addChangeListener(this);
     }
 
-    ghostTile = std::make_unique<GhostAddTile>();
-    ghostTile->onClick = [this]
-    {
-        if (onGhostClicked != nullptr)
-            onGhostClicked();
-    };
-    addChildComponent (*ghostTile);
+
 
     refresh();
 }
@@ -100,12 +54,10 @@ int SlotGrid::preferredHeightFor (int visibleCount)
 {
     const int count = juce::jlimit (0, ReferenceMaxAudioProcessor::maxReferenceSlots, visibleCount);
 
-    const int cells = count + (count < ReferenceMaxAudioProcessor::maxReferenceSlots ? 1 : 0);
+    if (count <= 0)
+        return 0;
 
-    if (cells <= 0)
-        return tileHeight;
-
-    const int rows = (cells + 1) / 2;
+    const int rows = (count + 1) / 2;
 
     return rows * tileHeight + (rows - 1) * tileGapY;
 }
@@ -135,71 +87,57 @@ void SlotGrid::refresh()
         tile.setLoading (slot.isLoading());
         tile.setMissing (slot.isMissingFile()); 
         tile.setSelected (i == selected);
+        tile.repaint(); 
     }
 
-    const bool showGhost = (visible < ReferenceMaxAudioProcessor::maxReferenceSlots);
-    ghostTile->setVisible (showGhost);
 
     resized();
-}
 
-//==============================================================================
+        if (auto* parent = getParentComponent())
+        parent->repaint();
+        
+    repaint(); 
+}
 
 void SlotGrid::resized()
 {
     const int visible = processor.getNumVisibleSlots();
-    const bool showGhost = (visible < ReferenceMaxAudioProcessor::maxReferenceSlots);
 
-    const int cells = visible + (showGhost ? 1 : 0);
-
-    if (cells <= 0)
+    if (visible <= 0)
         return;
 
-    const int rows = (cells + 1) / 2;
+    const int rows = (visible + 1) / 2;
 
     auto area = getLocalBounds();
 
-    // Two columns with a fixed gap between them. The gap goes between the
-    // two cells in a row, not at the right edge.
     const int colWidth = (area.getWidth() - tileGapX) / 2;
 
     for (int row = 0; row < rows; ++row)
     {
         auto rowArea = area.removeFromTop (tileHeight);
 
-        int col = 0;
-        int cellIndex = row * 2 + col;
-
-        if (cellIndex < cells)
+        for (int col = 0; col < 2; ++col)
         {
+            const int cellIndex = row * 2 + col;
+
+            if (cellIndex >= visible)
+                break;
+
             auto cell = rowArea.removeFromLeft (colWidth);
 
-            if (cellIndex < visible)
-                tiles[(size_t) cellIndex]->setBounds (cell);
-            else if (showGhost)
-                ghostTile->setBounds (cell);
-        }
+            tiles[(size_t) cellIndex]->setBounds (cell);
 
-        // Gap between columns.
-        rowArea.removeFromLeft (tileGapX);
-
-        col = 1;
-        cellIndex = row * 2 + col;
-
-        if (cellIndex < cells)
-        {
-            auto cell = rowArea.removeFromLeft (colWidth);
-
-            if (cellIndex < visible)
-                tiles[(size_t) cellIndex]->setBounds (cell);
-            else if (showGhost)
-                ghostTile->setBounds (cell);
+            rowArea.removeFromLeft (tileGapX);
         }
 
         if (row < rows - 1)
             area.removeFromTop (tileGapY);
     }
 }
+
+//==============================================================================
+
+
 
 void SlotGrid::forEachVisibleTileBounds (const std::function<void (juce::Rectangle<float>)>& fn) const
 {
@@ -208,9 +146,6 @@ void SlotGrid::forEachVisibleTileBounds (const std::function<void (juce::Rectang
         if (tile != nullptr && tile->isVisible())
             fn (tile->getBounds().toFloat());
     }
-
-    if (ghostTile != nullptr && ghostTile->isVisible())
-        fn (ghostTile->getBounds().toFloat());
 }
 
 //==============================================================================
@@ -218,4 +153,9 @@ void SlotGrid::forEachVisibleTileBounds (const std::function<void (juce::Rectang
 void SlotGrid::paint (juce::Graphics& g)
 {
     juce::ignoreUnused (g);
+}
+
+void SlotGrid::changeListenerCallback (juce::ChangeBroadcaster*)
+{
+    refresh(); 
 }

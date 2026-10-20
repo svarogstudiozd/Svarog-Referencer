@@ -79,16 +79,7 @@ public:
             drawRecessedControl (g, bounds, base.darker (0.15f));
         }
 
-         // Outer border. The black outline is drawn inside
-        // drawRaisedControl / drawRecessedControl already, so we only
-        // add an explicit border here for disabled buttons (which use
-        // the recessed treatment) to make them read as clearly
-        // inactive.
-        if (! isEnabled)
-        {
-            g.setColour (Theme::borderSubtle);
-            g.drawRoundedRectangle (bounds, Radius::control, 1.0f);
-        }
+
     }
 
     /** Draws a shadow for a control at the given position. Called by
@@ -199,10 +190,13 @@ public:
 
         g.setFont (font);
 
-        const auto normalColour = button.findColour (button.getToggleState()
-                                                     ? juce::TextButton::textColourOnId
-                                                     : juce::TextButton::textColourOffId);
-
+        // If the button is toggled ON, we force it to use the brightest 
+        // text color (textPrimary) for maximum contrast against the red glow.
+        // Otherwise, we use whatever Off color was assigned.
+        const auto normalColour = button.getToggleState()
+                                ? Theme::textPrimary
+                                : button.findColour (juce::TextButton::textColourOffId);
+                                
         const auto textColour = button.isEnabled()
             ? normalColour
             : normalColour.withMultipliedAlpha (0.4f);
@@ -306,181 +300,183 @@ public:
         g.setColour (juce::Colours::black.withAlpha (0.85f));
         g.drawRoundedRectangle (bounds.reduced (0.5f), Radius::panel, 1.0f);
     }
-       void drawWell (juce::Graphics& g,
+     void drawWell (juce::Graphics& g,
                    juce::Rectangle<float> bounds,
                    juce::Colour fill) const
     {
-        // Fill.
-        g.setColour (fill);
-        g.fillRoundedRectangle (bounds, Radius::well);
+        const float wellRadius = juce::jmax (Radius::well, 6.0f);
 
-        // Inner shadow (top) and inner highlight (bottom), both clipped
-        // to the well's rounded corners.
+        // 1. Fill.
+        g.setColour (fill);
+        g.fillRoundedRectangle (bounds, wellRadius);
+
+               // Everything else is clipped to the well's interior.
         {
             juce::Graphics::ScopedSaveState save (g);
 
             juce::Path clip;
-            clip.addRoundedRectangle (bounds, Radius::well);
+            clip.addRoundedRectangle (bounds, wellRadius);
             g.reduceClipRegion (clip, {});
 
-            // Top inner shadow: multi-stop gradient so the falloff is
-            // soft rather than a hard band.
-            const float shadowHeight = 14.0f;
+            // Inner shadow, all around, with a slight vertical bias
+            // toward the bottom so the well reads as "lit from above".
+            //
+            // Four gradient bands. The top is the deepest; the sides
+            // and bottom are lighter so the shadow feels directional.
+            const float topFade    = 14.0f;
+            const float bottomFade = 12.0f;
+            const float sideFade   = 10.0f;
 
-            juce::ColourGradient topShadow (
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getY() + shadowHeight,
-                false);
-
-            topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.60f));
-            topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.35f));
-            topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.20f));
-
-            g.setGradientFill (topShadow);
-            g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
-
-            // Bottom inner highlight: a curved line along the inside of
-            // the bottom edge and both lower corners, fading at both ends.
+            // Top inner shadow
             {
-                juce::Path inner;
-                inner.addRoundedRectangle (bounds.reduced (1.0f),
-                                           juce::jmax (0.0f, Radius::well - 1.0f));
+                juce::ColourGradient grad (
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX(), bounds.getY(),
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX(), bounds.getY() + topFade,
+                    false);
 
-                juce::Path outline;
-                juce::PathStrokeType (2.0f,
-                                      juce::PathStrokeType::curved,
-                                      juce::PathStrokeType::butt)
-                    .createStrokedPath (outline, inner);
+                grad.addColour (0.15, juce::Colours::black.withAlpha (0.60f));
+                grad.addColour (0.40, juce::Colours::black.withAlpha (0.35f));
+                grad.addColour (0.70, juce::Colours::black.withAlpha (0.20f));
 
-                // Restrict drawing to a band along the bottom that
-                // includes the full arc of the corners.
-                juce::Graphics::ScopedSaveState saveInner (g);
+                g.setGradientFill (grad);
+                g.fillRect (bounds.withHeight (topFade + 1.0f));
+            }
 
-                juce::Rectangle<float> bottomBand (
+            // Bottom inner shadow — lighter than the top, so the
+            // shadow reads as coming from above.
+            {
+                juce::ColourGradient grad (
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX(), bounds.getBottom(),
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX(), bounds.getBottom() - bottomFade,
+                    false);
+
+                grad.addColour (0.3, juce::Colours::black.withAlpha (0.30f));
+                grad.addColour (0.7, juce::Colours::black.withAlpha (0.08f));
+
+                g.setGradientFill (grad);
+                g.fillRect (juce::Rectangle<float> (
                     bounds.getX(),
-                    bounds.getBottom() - Radius::well - 0.0f,
+                    bounds.getBottom() - bottomFade,
                     bounds.getWidth(),
-                    Radius::well + 0.0f);
+                    bottomFade));
+            }
 
-                juce::Path band;
-                band.addRectangle (bottomBand);
-                g.reduceClipRegion (band, {});
+            // Left inner shadow
+            {
+                juce::ColourGradient grad (
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX(), bounds.getY(),
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getX() + sideFade, bounds.getY(),
+                    false);
 
-                // Solid highlight — no fade at the ends.
-                g.setColour (juce::Colours::white.withAlpha (0.35f));
-                g.fillPath (outline);
+                grad.addColour (0.3, juce::Colours::black.withAlpha (0.25f));
+                grad.addColour (0.7, juce::Colours::black.withAlpha (0.10f));
+
+                g.setGradientFill (grad);
+                g.fillRect (juce::Rectangle<float> (
+                    bounds.getX(),
+                    bounds.getY(),
+                    sideFade,
+                    bounds.getHeight()));
+            }
+
+            // Right inner shadow
+            {
+                juce::ColourGradient grad (
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getRight(), bounds.getY(),
+                    juce::Colours::black.withAlpha (0.0f),
+                    bounds.getRight() - sideFade, bounds.getY(),
+                    false);
+
+                grad.addColour (0.3, juce::Colours::black.withAlpha (0.25f));
+                grad.addColour (0.7, juce::Colours::black.withAlpha (0.10f));
+
+                g.setGradientFill (grad);
+                g.fillRect (juce::Rectangle<float> (
+                    bounds.getRight() - sideFade,
+                    bounds.getY(),
+                    sideFade,
+                    bounds.getHeight()));
             }
         }
 
-        // Dark line along the top edge — a solid stroke inside the
-        // rounded corner, mimicking the top lip of a physical recess.
+        // 3. Bottom highlight — 2 px curved line, faded at both ends.
+        // Drawn OUTSIDE the interior clip so it can sit exactly on the
+        // well's bottom edge.
         {
             juce::Graphics::ScopedSaveState save (g);
 
-            juce::Path clip;
-            clip.addRoundedRectangle (bounds, Radius::well);
-            g.reduceClipRegion (clip, {});
-
-            juce::Path topLine;
-            topLine.addRoundedRectangle (bounds.reduced (0.5f),
-                                         juce::jmax (0.0f, Radius::well - 0.5f));
-
-            juce::Graphics::ScopedSaveState saveInner (g);
-
-            juce::Rectangle<float> topBand (
+            // Clip to the bottom band only.
+            juce::Rectangle<float> bottomBand (
                 bounds.getX(),
-                bounds.getY(),
+                bounds.getBottom() - wellRadius - 2.0f,
                 bounds.getWidth(),
-                3.0f);
+                wellRadius + 2.0f);
 
             juce::Path band;
-            band.addRectangle (topBand);
+            band.addRectangle (bottomBand);
             g.reduceClipRegion (band, {});
 
-            g.setColour (juce::Colours::black.withAlpha (0.7f));
-            g.strokePath (topLine,
-                          juce::PathStrokeType (1.0f,
-                                                juce::PathStrokeType::curved,
-                                                juce::PathStrokeType::butt));
-        }
-
-         // Outer edge: dark all around.
-        g.setColour (juce::Colours::black.withAlpha (0.55f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), Radius::well, 1.0f);
-
-        // Lighter left and right edges, clipped to thin vertical bands
-        // so they don't extend into the top or bottom. The highlight
-        // fades to black toward the top so the light appears to come
-        // from below.
-        {
-            juce::Graphics::ScopedSaveState save (g);
-
-            juce::Path clip;
-            clip.addRoundedRectangle (bounds, Radius::well);
-            g.reduceClipRegion (clip, {});
-
-            // Build the stroked outline once — it's used by both bands.
+            // Inner rounded path, one pixel inside the well.
             juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.5f),
-                                       juce::jmax (0.0f, Radius::well - 1.0f));
+            inner.addRoundedRectangle (bounds.reduced (0.5f),
+                                       juce::jmax (0.0f, wellRadius - 1.0f));
 
             juce::Path outline;
-            juce::PathStrokeType (3.0f,
+            juce::PathStrokeType (0.5f,
                                   juce::PathStrokeType::curved,
                                   juce::PathStrokeType::butt)
                 .createStrokedPath (outline, inner);
 
-            // Vertical gradient: transparent at the top, faint white
-            // in the middle, brighter white at the bottom.
+            // Horizontal fade: transparent at the ends, bright in
+            // the middle.
             juce::ColourGradient fade (
-                juce::Colours::white.withAlpha (0.08f),
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getX(), 0.0f,
+                juce::Colours::white.withAlpha (0.0f),
+                bounds.getRight(), 0.0f,
+                false);
+
+            fade.addColour (0.03, juce::Colours::white.withAlpha (0.10f));
+            fade.addColour (0.50, juce::Colours::white.withAlpha (0.05f));
+            fade.addColour (0.97, juce::Colours::white.withAlpha (0.10f));
+
+            g.setGradientFill (fade);
+            g.fillPath (outline);
+        }
+
+        // 4. Gradient border — dark at the top, lighter at the bottom.
+        // Drawn last so it defines the well's outer shape.
+        {
+            juce::Path borderPath;
+            borderPath.addRoundedRectangle (bounds.reduced (1.0f),
+                                            juce::jmax (0.0f, wellRadius - 1.0f));
+
+            juce::Path outline;
+            juce::PathStrokeType (2.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, borderPath);
+
+            juce::ColourGradient borderGrad (
+                juce::Colours::black.withAlpha (0.10f),
                 bounds.getX(), bounds.getY(),
-                juce::Colours::white.withAlpha (0.25f),
+                juce::Colours::white.withAlpha (0.20f),
                 bounds.getX(), bounds.getBottom(),
                 false);
 
-            fade.addColour (0.21, juce::Colours::white.withAlpha (0.15f));
+            borderGrad.addColour (0.0, juce::Colours::white.withAlpha (0.10f));
 
-            // Left side band.
-            {
-                juce::Graphics::ScopedSaveState saveLeft (g);
-
-                juce::Rectangle<float> leftBand (
-                    bounds.getX(),
-                    bounds.getY() + Radius::well,
-                    2.0f,
-                    bounds.getHeight() - Radius::well * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (leftBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
-
-            // Right side band.
-            {
-                juce::Graphics::ScopedSaveState saveRight (g);
-
-                juce::Rectangle<float> rightBand (
-                    bounds.getRight() - 2.0f,
-                    bounds.getY() + Radius::well,
-                    2.0f,
-                    bounds.getHeight() - Radius::well * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (rightBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
+            g.setGradientFill (borderGrad);
+            g.fillPath (outline);
         }
     }
-
     /** Draws a raised control: a soft drop shadow, a vertical gradient
         (brighter at the top, darker at the bottom), and a 1 px highlight
         along the top inside edge.
@@ -634,28 +630,95 @@ public:
             clip.addRoundedRectangle (bounds, Radius::control);
             g.reduceClipRegion (clip, {});
 
-            // Top inner shadow: a soft, multi-stop gradient so the
-            // falloff is smooth rather than a hard 4 px band. The
-            // shadow starts lighter at the very top edge (so it doesn't
-            // look like a line), peaks just below, then fades to
-            // nothing over about 8 px.
-            const float shadowHeight = 8.0f;
+            // Inner shadow: all around the well's interior, biased
+            // toward the bottom. Built by stroking a downward-offset
+            // rounded path with a wide, dark stroke.
+            {
+                                    {
+                juce::Graphics::ScopedSaveState saveInner (g);
 
-            juce::ColourGradient topShadow (
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getY() + shadowHeight,
-                false);
+                juce::Path clip;
+                clip.addRoundedRectangle (bounds, Radius::control);
+                g.reduceClipRegion (clip, {});
 
-            topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
-            topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
-            topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
+                // Fade distances, in pixels. Bigger = softer shadow.
+                constexpr float topFade    = 9.0f;
+                constexpr float bottomFade = 6.0f;
+                constexpr float sideFade   = 6.0f;
 
-            g.setGradientFill (topShadow);
-            g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
+                // Alphas. Higher = darker shadow.
+                constexpr float topAlpha    = 0.55f;
+                constexpr float bottomAlpha = 0.30f;
+                constexpr float sideAlpha   = 0.30f;
 
-            // Bottom inner highlight: a soft bright line along the inside
+                // Top
+                {
+                    juce::ColourGradient grad (
+                        juce::Colours::black.withAlpha (topAlpha),
+                        bounds.getX(), bounds.getY(),
+                        juce::Colours::black.withAlpha (0.0f),
+                        bounds.getX(), bounds.getY() + topFade,
+                        false);
+
+                    g.setGradientFill (grad);
+                    g.fillRect (bounds.withHeight (topFade + 1.0f));
+                }
+
+                // Bottom
+                {
+                    juce::ColourGradient grad (
+                        juce::Colours::black.withAlpha (bottomAlpha),
+                        bounds.getX(), bounds.getBottom(),
+                        juce::Colours::black.withAlpha (0.0f),
+                        bounds.getX(), bounds.getBottom() - bottomFade,
+                        false);
+
+                    g.setGradientFill (grad);
+                    g.fillRect (juce::Rectangle<float> (
+                        bounds.getX(),
+                        bounds.getBottom() - bottomFade,
+                        bounds.getWidth(),
+                        bottomFade));
+                }
+
+                // Left
+                {
+                    juce::ColourGradient grad (
+                        juce::Colours::black.withAlpha (sideAlpha),
+                        bounds.getX(), bounds.getY(),
+                        juce::Colours::black.withAlpha (0.0f),
+                        bounds.getX() + sideFade, bounds.getY(),
+                        false);
+
+                    g.setGradientFill (grad);
+                    g.fillRect (juce::Rectangle<float> (
+                        bounds.getX(),
+                        bounds.getY(),
+                        sideFade,
+                        bounds.getHeight()));
+                }
+
+                // Right
+                {
+                    juce::ColourGradient grad (
+                        juce::Colours::black.withAlpha (sideAlpha),
+                        bounds.getRight(), bounds.getY(),
+                        juce::Colours::black.withAlpha (0.0f),
+                        bounds.getRight() - sideFade, bounds.getY(),
+                        false);
+
+                    g.setGradientFill (grad);
+                    g.fillRect (juce::Rectangle<float> (
+                        bounds.getRight() - sideFade,
+                        bounds.getY(),
+                        sideFade,
+                        bounds.getHeight()));
+                }
+            
+            }
+            }
+
+                      // Bottom inner highlight: a soft bright line along the inside
             // of the bottom edge that fades out toward the two ends, so
             // it reads as light catching the middle of the lower lip
             // rather than a hard line.
@@ -663,8 +726,8 @@ public:
                 const auto r = Radius::control;
 
                 // Stroke a path that sits one pixel inside the box.
-                auto pathBounds = bounds.reduced (1.0f);
-                const float pathR = juce::jmax (0.0f, r - 1.0f);
+                auto pathBounds = bounds.reduced (0.5f);
+                const float pathR = juce::jmax (0.0f, r - 1.5f);
 
                 juce::Path inner;
                 inner.addRoundedRectangle (pathBounds, pathR);
@@ -674,9 +737,9 @@ public:
 
                  juce::Rectangle<float> bottomBand (
                     bounds.getX(),
-                    bounds.getBottom() - 5.0f,
+                    bounds.getBottom() - 4.0f,
                     bounds.getWidth(),
-                    5.0f);
+                    4.0f);
 
                 juce::Path band;
                 band.addRectangle (bottomBand);
@@ -692,19 +755,17 @@ public:
                     bounds.getRight(), 0.0f,
                     false);
 
-                fade.addColour (0.03, juce::Colours::white.withAlpha (0.40f));
-                fade.addColour (0.50, juce::Colours::white.withAlpha (0.40f));
-                fade.addColour (0.97, juce::Colours::white.withAlpha (0.40f));
+                // INCREASED ALPHA here for a brighter lip
+                fade.addColour (0.02, juce::Colours::white.withAlpha (0.30f));
+                fade.addColour (0.50, juce::Colours::white.withAlpha (0.30f));
+                fade.addColour (0.98, juce::Colours::white.withAlpha (0.30f));
 
-                // JUCE strokes don't take gradients directly, so we draw
-                // the path twice: once clipped to the left half with a
-                // fading alpha, once to the right half. Simpler: fill the
-                // path with the gradient instead of stroking.
-                //
                 // Fill the stroked path by expanding it into a filled
                 // shape, then fill with the gradient.
                 juce::Path outline;
-                juce::PathStrokeType (1.0f,
+                // INCREASED THICKNESS to 1.5f so it doesn't get lost
+                // under the outer dark border drawn below.
+                juce::PathStrokeType (1.5f,
                                       juce::PathStrokeType::curved,
                                       juce::PathStrokeType::butt)
                     .createStrokedPath (outline, inner);
@@ -714,10 +775,39 @@ public:
             }
         }
 
-        // Subtle outer border.
-        g.setColour (juce::Colours::black.withAlpha (0.45f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), Radius::control, 1.0f);
-    }
+         // Outer border: dark at the top, fading to lighter at the
+        // bottom. The corner curves at the bottom therefore show the
+        // light accent rather than a dark outline.
+        {
+            // Build the stroked outline of the well's border.
+            juce::Path borderPath;
+            borderPath.addRoundedRectangle (bounds.reduced (0.3f),
+                                            juce::jmax (0.3f, Radius::control - 0.5f));
+
+            juce::Path outline;
+            juce::PathStrokeType (1.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, borderPath);
+
+            // Vertical gradient: dark at the top, transparent in the
+            // middle, lighter at the bottom.
+            juce::ColourGradient borderGrad (
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::white.withAlpha (0.12f),
+                bounds.getX(), bounds.getBottom(),
+                false);
+
+            borderGrad.addColour (0.1, juce::Colours::black.withAlpha (0.00f));
+
+            g.setGradientFill (borderGrad);
+            g.fillPath (outline);
+        }
+
+        
+
+      }  
 
     void drawLinearSlider (juce::Graphics& g,
                            int x, int y, int width, int height,

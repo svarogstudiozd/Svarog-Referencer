@@ -40,7 +40,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
                                     juce::dontSendNotification);
     autoPauseButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
     autoPauseButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    autoPauseButton.setColour (juce::TextButton::textColourOffId,  Theme::textSecondary);
+    autoPauseButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     autoPauseButton.setColour (juce::TextButton::textColourOnId,   Theme::greyLight);
     autoPauseButton.setTooltip ("Pause the timer automatically after the "
                                 "configured idle time. Turn off to keep "
@@ -318,6 +318,54 @@ void SessionStrip::paint (juce::Graphics& g)
     }
 }
 
+void SessionStrip::paintOverChildren (juce::Graphics& g)
+{
+    // We only draw the custom gradient when the button is in the "Waiting" state
+    if (toggleButton.getButtonText() == "Waiting")
+    {
+        auto bounds = toggleButton.getBounds().toFloat().reduced (0.5f);
+        const float radius = Radius::control;
+
+        // 1. Draw the base button shape so it's solid
+        g.setColour (Theme::surfaceRaised.darker (0.35f));
+        g.fillRoundedRectangle (bounds, radius);
+
+        // 2. Create the radial gradient (Dark Red center fading to Grey)
+        const auto centre = bounds.getCentre();
+        const auto gradRadius = juce::jmax (bounds.getWidth(), bounds.getHeight()) * 0.6f;
+
+        // Center color: lighter, richer red.
+        const auto centerColor = Theme::accentRed; 
+        
+        // Edge color: fades into the dark grey of the button
+        const auto edgeColor = Theme::surfaceRaised.darker (0.35f);
+
+        juce::ColourGradient glowGrad (
+            centerColor, centre.x, centre.y,
+            edgeColor, centre.x + gradRadius, centre.y,
+            true // Radial gradient
+        );
+
+        g.setGradientFill (glowGrad);
+        g.fillRoundedRectangle (bounds, radius);
+
+        // 3. Draw the dark border matching your LookAndFeel
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+        g.drawRoundedRectangle (bounds, radius, 1.0f);
+
+        // 4. Draw the text on top
+        // We must save the state and translate the drawing origin to the button's 
+        // local position so the text appears in the right spot.
+        juce::Graphics::ScopedSaveState save (g);
+        g.setOrigin (toggleButton.getPosition()); 
+        
+        if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+        {
+            lf->drawButtonText (g, toggleButton, false, false);
+        }
+    }
+}
+
 void SessionStrip::forEachVisibleChildBounds (const std::function<void (juce::Rectangle<float>)>& fn) const
 {
     const auto emit = [&] (const juce::Component& c)
@@ -455,19 +503,19 @@ void SessionStrip::updateButtonLabels()
     // passes isGlowing = true, triggering the radial gradient.
      if (text == "Waiting")
     {
-        // Waiting is an informational state, not a call to action —
-        // no glow. We use the off-state fill (buttonColourId) with a
-        // reddish tint so it reads as distinct from the neutral Stop
-        // state without looking engaged.
-        toggleButton.setColour (juce::TextButton::buttonColourId,
-                                Theme::accentRed.darker (1.00f));
+        // Make the button's own background transparent so our 
+        // paintOverChildren gradient is the only thing visible.
+        toggleButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        
+        // Hide the native text because paintOverChildren will draw it perfectly centered
+        toggleButton.setButtonText (""); 
+        
         toggleButton.setToggleState (false, juce::dontSendNotification);
     }
     else
     {
         // Reset the off-state colour for non-Waiting states.
-        toggleButton.setColour (juce::TextButton::buttonColourId,
-                                Theme::panel);
+        toggleButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
 
         if (primary)
             toggleButton.setToggleState (true, juce::dontSendNotification);

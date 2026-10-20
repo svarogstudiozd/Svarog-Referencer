@@ -50,6 +50,16 @@ void WaveformView::paint (juce::Graphics& g)
     g.setColour (Theme::surfaceRaised.darker (0.35f));
     g.fillRoundedRectangle (bounds, wellRadius);
 
+    // --- NEW CODE START ---
+    // Clip everything from here down to the rounded corners.
+    // This prevents the waveform, shadow, and loop region from 
+    // spilling over the top-left and top-right edges.
+    juce::Graphics::ScopedSaveState saveWaveform (g);
+    juce::Path clipPath;
+    clipPath.addRoundedRectangle (bounds, wellRadius);
+    g.reduceClipRegion (clipPath, {});
+    // --- NEW CODE END ---
+
    
         // Top inner shadow — multi-stop gradient.
         const float shadowHeight = 10.0f;

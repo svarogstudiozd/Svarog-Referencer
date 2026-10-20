@@ -105,6 +105,7 @@ private:
     juce::Label titleLabel;
     juce::Label fileLabel;
     juce::TextButton replaceButton { "Replace" };
+    juce::TextButton addButton { "Add +" };
     juce::TextButton loopButton { "Loop" };
     juce::TextButton followButton { "Follow" };
     DoubleClickableButton matchButton;

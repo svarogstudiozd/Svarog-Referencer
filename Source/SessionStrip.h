@@ -40,6 +40,7 @@ public:
     ~SessionStrip() override;
 
     void paint (juce::Graphics&) override;
+    void paintOverChildren (juce::Graphics& g) override;
     void resized() override;
 
     // Height this component wants to occupy. Used by the editor's

@@ -5,6 +5,7 @@
 #include <array>
 #include <memory>
 #include <functional>
+#include "SlotGrid.h"
 
 /**
     2-column grid of slot tiles plus a ghost "+ Add" tile.
@@ -16,9 +17,13 @@
     (editor) decides what to do (typically: add a slot, then open a file
     chooser for it).
 */
-class SlotGrid : public juce::Component
+class SlotGrid : public juce::Component,
+                 public juce::ChangeListener
 {
 public:
+
+void changeListenerCallback (juce::ChangeBroadcaster* source) override; 
+
     explicit SlotGrid (ReferenceMaxAudioProcessor& processor);
     ~SlotGrid() override;
 
@@ -34,14 +39,14 @@ public:
     void forEachVisibleTileBounds (const std::function<void (juce::Rectangle<float>)>& fn) const;
 
 private:
-    class GhostAddTile;
+   
 
     ReferenceMaxAudioProcessor& processor;
 
     std::array<std::unique_ptr<SlotTile>, ReferenceMaxAudioProcessor::maxReferenceSlots> tiles;
-    std::unique_ptr<GhostAddTile> ghostTile;
+    
 
-    static constexpr int tileHeight = 40;
+    static constexpr int tileHeight = 35;
     static constexpr int tileGapX   = 6;
     static constexpr int tileGapY   = 6;
 

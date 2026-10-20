@@ -2,6 +2,7 @@
 #include "Theme.h"
 #include "TimeFormat.h"
 #include "ReferenceMaxLookAndFeel.h"
+#include "SlotGrid.h"
 
 ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     : processor (p)
@@ -32,6 +33,53 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     addAndMakeVisible (replaceButton);
     
     replaceButton.getProperties().set ("fontSize", 12.0f);
+
+    // Replace button: neutral panel colour, matching the other
+    // non-engaged buttons in the row.
+    replaceButton.onClick = [this] { openFileChooser(); };
+    replaceButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
+    replaceButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
+    replaceButton.setColour (juce::TextButton::textColourOnId, Theme::greyLight);
+    replaceButton.setInterceptsMouseClicks (true, true);
+    addAndMakeVisible (replaceButton);
+
+    replaceButton.getProperties().set ("fontSize", 12.0f);
+
+    // Add button: appends a new empty slot.
+    addButton.onClick = [this]
+    {
+        const int current = processor.getNumVisibleSlots();
+        if (current >= ReferenceMaxAudioProcessor::maxReferenceSlots)
+            return;
+
+        processor.addSlot();
+
+        const int newLogical = processor.getSoloSlot();
+        setSlot (newLogical);
+        refresh();
+
+        // Refresh the parent's layout (height may have changed).
+        if (auto* parent = getParentComponent())
+            parent->resized();
+
+        // --- NEW CODE: Launch the file chooser for the newly created slot ---
+        // We use callAsync to ensure the UI has finished resizing and 
+        // setting up the new slot before the file dialog opens.
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<ReferenceDetailView> (this)]
+        {
+            if (safe != nullptr)
+                safe->openFileChooser();
+        });
+    };
+
+    addButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
+    addButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
+    addButton.setInterceptsMouseClicks (true, true);
+    addButton.getProperties().set ("fontSize", 12.0f);
+    addButton.setTooltip ("Add a new reference slot");
+    addAndMakeVisible (addButton);
+
+    
 
     loopButton.setClickingTogglesState (true);
     loopButton.onClick = [this]
@@ -365,9 +413,11 @@ void ReferenceDetailView::toggleFollow()
     updateTimeDisplay();
 
     if (waveform != nullptr)
+    {
         waveform->repaint();
-    
-        repaint(); 
+    }
+
+    repaint();
 }
 
 //==============================================================================
@@ -699,7 +749,7 @@ void ReferenceDetailView::refresh()
 
     if (noSlots)
     {
-        titleLabel.setText ("No reference - click + Add reference to start",
+        titleLabel.setText ("No reference - click + to add",
                             juce::dontSendNotification);
         fileLabel.setText ("", juce::dontSendNotification);
         statusText = "";
@@ -714,9 +764,9 @@ void ReferenceDetailView::refresh()
                         juce::dontSendNotification);
     fileLabel.setText (slot.getStatusText(), juce::dontSendNotification);
 
-    // Red file label for missing files so the problem is unmistakable.
+    // Amber file label for missing files so the problem stands out.
     fileLabel.setColour (juce::Label::textColourId,
-                         slot.isMissingFile() ? Theme::accentRedBright
+                         slot.isMissingFile() ? Theme::warningAmber
                                               : Theme::greyLight);
 
     updateReplaceButtonLabel();
@@ -786,6 +836,7 @@ void ReferenceDetailView::paint (juce::Graphics& g)
         drawShadow (followButton);
         drawShadow (offsetButton);
         drawShadow (matchButton);
+        drawShadow (addButton);
     }
 
 
@@ -815,7 +866,6 @@ void ReferenceDetailView::paintOverChildren (juce::Graphics& g)
         {
             const auto wellX = (float) gainSlider.getProperties().getWithDefault ("wellX", 0.0f);
             const auto wellY = (float) gainSlider.getProperties().getWithDefault ("wellY", 0.0f);
-            const auto wellW = (float) gainSlider.getProperties().getWithDefault ("wellW", 0.0f);
             const auto wellH = (float) gainSlider.getProperties().getWithDefault ("wellH", 0.0f);
             const auto fillRight = (float) gainSlider.getProperties().getWithDefault ("fillRightX", 0.0f);
 
@@ -854,12 +904,19 @@ void ReferenceDetailView::resized()
 
     if (noSlots)
     {
+        const int addButtonWidth = 78;
+        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, 2));
+
         titleLabel.setBounds (header);
         fileLabel.setBounds ({});
     }
     else
     {
+        const int addButtonWidth = 78;
         const int replaceButtonWidth = 78;
+
+        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, 2));
+        header.removeFromRight (6);
         replaceButton.setBounds (header.removeFromRight (replaceButtonWidth).reduced (0, 2));
 
         titleLabel.setBounds (header.removeFromLeft (56));
@@ -937,6 +994,13 @@ void ReferenceDetailView::timerCallback()
         updateTimeDisplay();
         updateMatchButtonText();
         updateOffsetButtonState();
+    }
+        if (auto* parent = getParentComponent())
+    {
+        if (auto* grid = dynamic_cast<SlotGrid*>(parent))
+        {
+            grid->refresh();
+        }
     }
 }
 

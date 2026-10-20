@@ -31,9 +31,9 @@ public:
 
 private:
     static constexpr int headerHeight    = 48;
-    static constexpr int gap             = 8;
+    static constexpr int gap             = 4;
     static constexpr int spectrumHeight  = 240;
-    static constexpr int filterBarHeight = 44;
+    static constexpr int filterBarHeight = 40;
     static constexpr int detailHeight    = 200;
     static constexpr int outerPadding    = 32;
     static constexpr int meterWidth      = 56;

@@ -26,7 +26,7 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     lf.setColour (juce::TooltipWindow::textColourId,       Theme::textPrimary);
     lf.setColour (juce::TooltipWindow::outlineColourId,    Theme::border);
 
-    titleLabel.setText ("Svarog Referencer", juce::dontSendNotification);
+    titleLabel.setText ("Svarog Referencer +", juce::dontSendNotification);
     titleLabel.setFont (juce::FontOptions (22.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     addAndMakeVisible (titleLabel);
@@ -63,23 +63,7 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     addAndMakeVisible (slotGrid);
     addAndMakeVisible (sessionStrip);
 
-    slotGrid.onGhostClicked = [this]
-    {
-        const int current = processorRef.getNumVisibleSlots();
-        if (current >= ReferenceMaxAudioProcessor::maxReferenceSlots)
-            return;
 
-        processorRef.addSlot();
-
-        const int newLogical = processorRef.getSoloSlot();
-        detailView.setSlot (newLogical);
-        slotGrid.refresh();
-
-        updateResizeLimits();
-        resizeToFitSlotsDeferred();
-
-        detailView.openChooserForCurrentSlot();
-    };
 
     processorRef.apvts.addParameterListener ("listen_mode", this);
     processorRef.apvts.addParameterListener ("solo_slot", this);
@@ -128,7 +112,7 @@ int ReferenceMaxAudioProcessorEditor::computeHeightForSlots (int numSlots)
       + filterBarHeight + gap
       + detailHeight + gap
       + outerPadding
-      + sessionStripHeight + gap;
+      + sessionStripHeight + gap + 3;
 
     const int gridHeight = SlotGrid::preferredHeightFor (numSlots);
 
@@ -282,7 +266,7 @@ void ReferenceMaxAudioProcessorEditor::resized()
     // the expanded spectrum gets exactly the space that's left.
 
     auto stripArea = bounds.removeFromBottom (sessionStripHeight);
-    bounds.removeFromBottom (gap);
+    bounds.removeFromBottom (gap + 3);   // <-- extra 5 px above the strip
     sessionStrip.setBounds (stripArea);
 
     const int numSlots = processorRef.getNumVisibleSlots();

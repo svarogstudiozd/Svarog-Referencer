@@ -201,7 +201,7 @@ public:
                                   const juce::String& label,
                                   bool isActive)
             {
-                g.setColour (isActive ? Theme::greyLight : Theme::textPrimary);
+                g.setColour (isActive ? Theme::textPrimary : Theme::greyLight);
 
                 g.drawFittedText (label,
                                   half.toNearestInt().reduced (4, 2),
