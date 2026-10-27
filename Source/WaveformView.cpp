@@ -39,157 +39,52 @@ juce::Rectangle<float> WaveformView::getWaveformBounds() const
 void WaveformView::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced (1.0f);
-
-    // Recessed well, matching the crossover value boxes. Dark fill with
-    // a soft inner shadow at the top and a faded inner highlight along
-    // the bottom curve.
     const float wellRadius = Radius::panel;
 
-    // Base fill — lighter than the deepest surface so the top shadow
-    // has something to darken against, but darker than the panel.
     g.setColour (Theme::surfaceRaised.darker (0.35f));
     g.fillRoundedRectangle (bounds, wellRadius);
 
-    // --- NEW CODE START ---
-    // Clip everything from here down to the rounded corners.
-    // This prevents the waveform, shadow, and loop region from 
-    // spilling over the top-left and top-right edges.
     juce::Graphics::ScopedSaveState saveWaveform (g);
     juce::Path clipPath;
-    clipPath.addRoundedRectangle (bounds, wellRadius);
+    clipPath.addRoundedRectangle (bounds.expanded (1.0f, 1.0f), wellRadius);
     g.reduceClipRegion (clipPath, {});
-    // --- NEW CODE END ---
 
-   
-        // Top inner shadow — multi-stop gradient.
-        const float shadowHeight = 10.0f;
 
-        juce::ColourGradient topShadow (
-            juce::Colours::black.withAlpha (0.0f),
+    // Unified gradient border
+    {
+        juce::Path borderPath;
+        borderPath.addRoundedRectangle (bounds.reduced (0.4f),
+                                        juce::jmax (0.0f, wellRadius - 0.5f));
+
+        juce::Path outline;
+        juce::PathStrokeType (1.0f,
+                              juce::PathStrokeType::curved,
+                              juce::PathStrokeType::butt)
+            .createStrokedPath (outline, borderPath);
+
+        juce::ColourGradient borderGrad (
+            juce::Colours::black.withAlpha (0.9f),
             bounds.getX(), bounds.getY(),
-            juce::Colours::black.withAlpha (0.0f),
-            bounds.getX(), bounds.getY() + shadowHeight,
+            juce::Colours::white.withAlpha (0.5f),
+            bounds.getX(), bounds.getBottom(),
             false);
+        borderGrad.addColour (0.0, juce::Colours::grey.withAlpha (0.35f));
 
-        topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
-        topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
-        topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
-
-        g.setGradientFill (topShadow);
-        g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
-
-        // Bottom inner highlight — curved line along the bottom edge
-        // and lower corners. Clipped to a band along the bottom so it
-        // doesn't extend up the sides.
-        {
-            juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.0f),
-                                       juce::jmax (0.0f, wellRadius - 1.0f));
-
-            juce::Path outline;
-            juce::PathStrokeType (1.0f,
-                                  juce::PathStrokeType::curved,
-                                  juce::PathStrokeType::butt)
-                .createStrokedPath (outline, inner);
-
-            // Restrict drawing to a band along the bottom.
-            juce::Graphics::ScopedSaveState saveInner (g);
-
-            juce::Rectangle<float> bottomBand (
-                bounds.getX(),
-                bounds.getBottom() - wellRadius - 0.0f,
-                bounds.getWidth(),
-                wellRadius + 0.0f);
-
-            juce::Path band;
-            band.addRectangle (bottomBand);
-            g.reduceClipRegion (band, {});
-
-            // Solid highlight — no fade at the ends.
-            g.setColour (juce::Colours::white.withAlpha (0.40f));
-            g.fillPath (outline);
-        }
-
-        // Left and right side highlights — faded from nothing at the
-        // top to visible at the bottom, matching the spectrum well.
-        {
-            // Build the stroked outline once — used by both bands.
-            juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.5f),
-                                       juce::jmax (0.0f, wellRadius - 1.0f));
-
-            juce::Path outline;
-            juce::PathStrokeType (2.0f,
-                                  juce::PathStrokeType::curved,
-                                  juce::PathStrokeType::butt)
-                .createStrokedPath (outline, inner);
-
-            // Vertical gradient: transparent at the top, faint white
-            // in the middle, brighter white at the bottom.
-            juce::ColourGradient fade (
-                juce::Colours::white.withAlpha (0.08f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::white.withAlpha (0.25f),
-                bounds.getX(), bounds.getBottom(),
-                false);
-
-            fade.addColour (0.21, juce::Colours::white.withAlpha (0.15f));
-
-            // Left side band.
-            {
-                juce::Graphics::ScopedSaveState saveLeft (g);
-
-                juce::Rectangle<float> leftBand (
-                    bounds.getX(),
-                    bounds.getY() + wellRadius,
-                    2.0f,
-                    bounds.getHeight() - wellRadius * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (leftBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
-
-            // Right side band.
-            {
-                juce::Graphics::ScopedSaveState saveRight (g);
-
-                juce::Rectangle<float> rightBand (
-                    bounds.getRight() - 2.0f,
-                    bounds.getY() + wellRadius,
-                    2.0f,
-                    bounds.getHeight() - wellRadius * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (rightBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
-        
+        g.setGradientFill (borderGrad);
+        g.fillPath (outline);
     }
-    
+
 
     auto& thumbnail = slot.getThumbnail();
-
     const float rulerHeight = 20.0f;
     auto waveformBounds = getWaveformBounds();
 
     const bool hasWaveform = (thumbnail.getNumChannels() > 0 &&
                               thumbnail.getTotalLength() > 0.0);
 
-    //==============================================================
-    // Waveform (bottom layer)
-    //==============================================================
-
     if (hasWaveform)
     {
         g.setColour (Theme::greyLight);
-
         thumbnail.drawChannel (g,
                                waveformBounds.toNearestInt().reduced (4, 4),
                                0.0,
@@ -199,10 +94,7 @@ void WaveformView::paint (juce::Graphics& g)
     }
     else
     {
-        // Placeholder text. When the slot is empty (not loading), invite
-        // the user to click and load a file.
         const bool isEmpty = ! slot.isLoaded() && ! slot.isLoading();
-
         g.setColour (isEmpty ? Theme::textSecondary : Theme::textFaint);
         g.setFont (juce::FontOptions (14.0f));
 
@@ -215,15 +107,6 @@ void WaveformView::paint (juce::Graphics& g)
                           juce::Justification::centred,
                           2);
     }
-
-    //==============================================================
-    // Loop region (ON TOP of waveform)
-    //
-    //   - Hidden when Follow is active (loop is ignored in that mode).
-    //   - While creating a new selection or dragging an existing edge:
-    //     use the in-progress selection.
-    //   - Otherwise: use the committed loop range.
-    //==============================================================
 
     const bool followActive = slot.isFollowMode();
     const bool inProgress = selectingLoop || draggingEdge != LoopEdge::none;
@@ -264,10 +147,6 @@ void WaveformView::paint (juce::Graphics& g)
         g.drawLine (endX,   waveformBounds.getY(), endX,   waveformBounds.getBottom(), 2.0f);
     }
 
-    //==============================================================
-    // Playhead
-    //==============================================================
-
     const auto playheadX =
         waveformBounds.getX() +
         waveformBounds.getWidth() * slot.getNormalizedPosition();
@@ -275,42 +154,113 @@ void WaveformView::paint (juce::Graphics& g)
     g.setColour (Theme::accentRedBright);
     g.drawLine (playheadX, waveformBounds.getY(), playheadX, waveformBounds.getBottom(), 2.0f);
 
- //==============================================================
-    // Top inner shadow — drawn AFTER the waveform, loop region, and
-    // playhead so it falls over them. Makes the content feel like it's
-    // inside the recess rather than on top of it.
-    //==============================================================
-
+    // Second top shadow (over the waveform, loop, and playhead)
     {
         juce::Graphics::ScopedSaveState save (g);
-
         juce::Path clip;
         clip.addRoundedRectangle (bounds, wellRadius);
         g.reduceClipRegion (clip, {});
 
         const float shadowHeight = 10.0f;
-
         juce::ColourGradient topShadow (
             juce::Colours::black.withAlpha (0.0f),
             bounds.getX(), bounds.getY(),
             juce::Colours::black.withAlpha (0.0f),
             bounds.getX(), bounds.getY() + shadowHeight,
             false);
-
         topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
         topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
         topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
-
         g.setGradientFill (topShadow);
         g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
     }
 
-    //==============================================================
-    // Ruler
-    //==============================================================
+        // Inner shadow — all four sides, offset downward so the top reads
+    // as the deepest edge, matching the analyser's recessed well.
+    {
+        juce::Graphics::ScopedSaveState save (g);
+
+        juce::Path shadowClip;
+        shadowClip.addRoundedRectangle (bounds, wellRadius);
+        g.reduceClipRegion (shadowClip, {});
+
+        const float topFade    = 14.0f;
+        const float bottomFade = 10.0f;
+        const float sideFade   = 12.0f;
+
+        // Top: strongest shadow, darkens from the top edge downward.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.55f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getY() + topFade,
+                false);
+            grad.addColour (0.25, juce::Colours::black.withAlpha (0.30f));
+            grad.addColour (0.60, juce::Colours::black.withAlpha (0.12f));
+            g.setGradientFill (grad);
+            g.fillRect (bounds.withHeight (topFade + 1.0f));
+        }
+
+        // Bottom: lighter shadow, fades upward. Slight darkening here
+        // completes the rounded well feel.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.30f),
+                bounds.getX(), bounds.getBottom(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getBottom() - bottomFade,
+                false);
+            grad.addColour (0.40, juce::Colours::black.withAlpha (0.08f));
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (
+                bounds.getX(),
+                bounds.getBottom() - bottomFade,
+                bounds.getWidth(),
+                bottomFade));
+        }
+
+        // Left side: shadow hugging the left edge, fading right.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.35f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX() + sideFade, bounds.getY(),
+                false);
+            grad.addColour (0.35, juce::Colours::black.withAlpha (0.15f));
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (
+                bounds.getX(),
+                bounds.getY(),
+                sideFade,
+                bounds.getHeight()));
+        }
+
+        // Right side: shadow hugging the right edge, fading left.
+        {
+            juce::ColourGradient grad (
+                juce::Colours::black.withAlpha (0.35f),
+                bounds.getRight(), bounds.getY(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getRight() - sideFade, bounds.getY(),
+                false);
+            grad.addColour (0.35, juce::Colours::black.withAlpha (0.15f));
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (
+                bounds.getRight() - sideFade,
+                bounds.getY(),
+                sideFade,
+                bounds.getHeight()));
+        }
+    }
 
     drawRuler (g, bounds, rulerHeight);
+
+
 }
+    
+
 
 //==============================================================================
 
@@ -394,7 +344,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     double currentTime = 0.0;
     int tickCount = 0;
 
-    while (currentTime <= length)
+    while (currentTime < length - 0.001)
     {
         const double x = rulerBounds.getX() + (currentTime / length) * totalWidth;
 
@@ -409,7 +359,11 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
                     rulerBounds.getBottom(),
                     1.5f);
 
-        if (isMajorTick)
+        // Only draw a text label if this tick is far enough from
+        // the right edge that it won't collide with the end label.
+        const bool nearRightEdge = (length - currentTime) < (intervalSeconds * 1.5);
+
+        if (isMajorTick && ! nearRightEdge)
         {
             const juce::String label = TimeFormat::mmSs (currentTime);
 
@@ -419,8 +373,6 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
             int edgeBehavior = 0;
             if (tickCount == 0)
                 edgeBehavior = 1;
-            else if (currentTime + intervalSeconds > length)
-                edgeBehavior = 2;
 
             const auto labelRect = makeLabelRect (x, edgeBehavior);
             const auto just = justificationForEdge (edgeBehavior);
@@ -432,7 +384,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
         tickCount++;
     }
 
-    if (tickCount > 0 && std::fmod (length, intervalSeconds) > 0.001)
+    // Single end-of-track label, always drawn at the right edge.
     {
         const double x = rulerBounds.getX() + totalWidth;
         const juce::String label = TimeFormat::mmSs (length);

@@ -120,180 +120,66 @@ SessionStrip::~SessionStrip()
 void SessionStrip::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
-
-    // Recessed well — same treatment as the spectrum, crossover boxes,
-    // and waveform. Lighter fill so the top inner shadow has something
-    // to darken against.
     const float wellRadius = Radius::panel;
 
-    // Base fill.
+    // 1. Fill the ENTIRE component rectangle with the well colour first.
+    //    This makes the corners opaque, so nothing from behind can show through.
+    g.fillAll (Theme::surfaceRaised.darker (0.35f));
+
+    // 2. Now draw the rounded well shape (this adds the anti-aliased curves).
     g.setColour (Theme::surfaceRaised.darker (0.35f));
     g.fillRoundedRectangle (bounds, wellRadius);
 
-    // Inner shadow / highlight and side edges, clipped to the well's
-    // rounded corners.
+    // 2. Top inner shadow (soft dark band along the top).
     {
         juce::Graphics::ScopedSaveState save (g);
-
         juce::Path clip;
         clip.addRoundedRectangle (bounds, wellRadius);
         g.reduceClipRegion (clip, {});
 
-        // Top inner shadow — multi-stop gradient.
         const float shadowHeight = 10.0f;
-
         juce::ColourGradient topShadow (
             juce::Colours::black.withAlpha (0.0f),
             bounds.getX(), bounds.getY(),
             juce::Colours::black.withAlpha (0.0f),
             bounds.getX(), bounds.getY() + shadowHeight,
             false);
-
         topShadow.addColour (0.15, juce::Colours::black.withAlpha (0.55f));
         topShadow.addColour (0.40, juce::Colours::black.withAlpha (0.30f));
         topShadow.addColour (0.70, juce::Colours::black.withAlpha (0.12f));
 
         g.setGradientFill (topShadow);
         g.fillRect (bounds.withHeight (shadowHeight + 1.0f));
-
-        // Bottom inner highlight — curved line along the bottom edge
-        // and lower corners.
-        {
-            juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.0f),
-                                       juce::jmax (0.0f, wellRadius - 1.0f));
-
-            juce::Path outline;
-            juce::PathStrokeType (1.0f,
-                                  juce::PathStrokeType::curved,
-                                  juce::PathStrokeType::butt)
-                .createStrokedPath (outline, inner);
-
-            juce::Graphics::ScopedSaveState saveInner (g);
-
-            juce::Rectangle<float> bottomBand (
-                bounds.getX(),
-                bounds.getBottom() - wellRadius - 0.0f,
-                bounds.getWidth(),
-                wellRadius + 0.0f);
-
-            juce::Path band;
-            band.addRectangle (bottomBand);
-            g.reduceClipRegion (band, {});
-
-            g.setColour (juce::Colours::white.withAlpha (0.35f));
-            g.fillPath (outline);
-        }
-
-               // Left and right side highlights — faded from nothing at the
-        // top to visible at the bottom, matching the spectrum well.
-        {
-            juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.5f),
-                                       juce::jmax (0.0f, wellRadius - 1.0f));
-
-            juce::Path outline;
-            juce::PathStrokeType (1.0f,
-                                  juce::PathStrokeType::curved,
-                                  juce::PathStrokeType::butt)
-                .createStrokedPath (outline, inner);
-
-            juce::ColourGradient fade (
-                juce::Colours::white.withAlpha (0.03f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::white.withAlpha (0.25f),
-                bounds.getX(), bounds.getBottom(),
-                false);
-
-            fade.addColour (0.21, juce::Colours::white.withAlpha (0.10f));
-
-            // Left side band.
-            {
-                juce::Graphics::ScopedSaveState saveLeft (g);
-
-                juce::Rectangle<float> leftBand (
-                    bounds.getX(),
-                    bounds.getY() + wellRadius,
-                    2.0f,
-                    bounds.getHeight() - wellRadius * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (leftBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
-
-            // Right side band.
-            {
-                juce::Graphics::ScopedSaveState saveRight (g);
-
-                juce::Rectangle<float> rightBand (
-                    bounds.getRight() - 2.0f,
-                    bounds.getY() + wellRadius,
-                    2.0f,
-                    bounds.getHeight() - wellRadius * 2.0f);
-
-                juce::Path band;
-                band.addRectangle (rightBand);
-                g.reduceClipRegion (band, {});
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
-        }
     }
 
-    // Dark line along the top edge, fading at the ends.
+    // 3. Single continuous gradient border (Black top -> White bottom).
     {
-        juce::Graphics::ScopedSaveState save (g);
-
-        juce::Path clip;
-        clip.addRoundedRectangle (bounds, wellRadius);
-        g.reduceClipRegion (clip, {});
-
-        juce::Path topLine;
-        topLine.addRoundedRectangle (bounds.reduced (0.5f),
-                                     juce::jmax (0.0f, wellRadius - 0.5f));
+        juce::Path borderPath;
+        borderPath.addRoundedRectangle (bounds.reduced (0.5f),
+                                        juce::jmax (0.0f, wellRadius - 0.5f));
 
         juce::Path outline;
         juce::PathStrokeType (1.0f,
                               juce::PathStrokeType::curved,
                               juce::PathStrokeType::butt)
-            .createStrokedPath (outline, topLine);
+            .createStrokedPath (outline, borderPath);
 
-        juce::Graphics::ScopedSaveState saveInner (g);
-
-        juce::Rectangle<float> topBand (
-            bounds.getX(),
-            bounds.getY(),
-            bounds.getWidth(),
-            3.0f);
-
-        juce::Path band;
-        band.addRectangle (topBand);
-        g.reduceClipRegion (band, {});
-
-        juce::ColourGradient fade (
-            juce::Colours::black.withAlpha (0.0f),
-            bounds.getX(), 0.0f,
-            juce::Colours::black.withAlpha (0.0f),
-            bounds.getRight(), 0.0f,
+        // Continuous gradient: dark grey at the top, mid grey at the
+        // middle, white at the bottom. No transparent stops.
+        juce::ColourGradient borderGrad (
+            juce::Colours::black.withAlpha (0.8f),
+            bounds.getX(), bounds.getY(),
+            juce::Colours::white.withAlpha (0.3f),
+            bounds.getX(), bounds.getBottom(),
             false);
-        fade.addColour (0.02, juce::Colours::black.withAlpha (0.7f));
-        fade.addColour (0.50, juce::Colours::black.withAlpha (0.7f));
-        fade.addColour (0.98, juce::Colours::black.withAlpha (0.7f));
+        borderGrad.addColour (0.7, juce::Colours::grey.withAlpha (0.25f));
 
-        g.setGradientFill (fade);
+        g.setGradientFill (borderGrad);
         g.fillPath (outline);
     }
 
-        // Draw shadows for our child buttons. Buttons cannot draw outside
-    // their own bounds — JUCE clips them — so we draw the shadows here
-    // in the parent, right after the well fill and before the buttons
-    // paint themselves.
-        if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+    // 4. Draw shadows for our child buttons.
+    if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
     {
         const auto drawShadow = [&] (juce::Component& c)
         {
@@ -315,54 +201,6 @@ void SessionStrip::paint (juce::Graphics& g)
         drawShadow (toggleButton);
         drawShadow (autoPauseButton);
         drawShadow (resetButton);
-    }
-}
-
-void SessionStrip::paintOverChildren (juce::Graphics& g)
-{
-    // We only draw the custom gradient when the button is in the "Waiting" state
-    if (toggleButton.getButtonText() == "Waiting")
-    {
-        auto bounds = toggleButton.getBounds().toFloat().reduced (0.5f);
-        const float radius = Radius::control;
-
-        // 1. Draw the base button shape so it's solid
-        g.setColour (Theme::surfaceRaised.darker (0.35f));
-        g.fillRoundedRectangle (bounds, radius);
-
-        // 2. Create the radial gradient (Dark Red center fading to Grey)
-        const auto centre = bounds.getCentre();
-        const auto gradRadius = juce::jmax (bounds.getWidth(), bounds.getHeight()) * 0.6f;
-
-        // Center color: lighter, richer red.
-        const auto centerColor = Theme::accentRed; 
-        
-        // Edge color: fades into the dark grey of the button
-        const auto edgeColor = Theme::surfaceRaised.darker (0.35f);
-
-        juce::ColourGradient glowGrad (
-            centerColor, centre.x, centre.y,
-            edgeColor, centre.x + gradRadius, centre.y,
-            true // Radial gradient
-        );
-
-        g.setGradientFill (glowGrad);
-        g.fillRoundedRectangle (bounds, radius);
-
-        // 3. Draw the dark border matching your LookAndFeel
-        g.setColour (juce::Colours::black.withAlpha (0.85f));
-        g.drawRoundedRectangle (bounds, radius, 1.0f);
-
-        // 4. Draw the text on top
-        // We must save the state and translate the drawing origin to the button's 
-        // local position so the text appears in the right spot.
-        juce::Graphics::ScopedSaveState save (g);
-        g.setOrigin (toggleButton.getPosition()); 
-        
-        if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
-        {
-            lf->drawButtonText (g, toggleButton, false, false);
-        }
     }
 }
 
@@ -463,33 +301,25 @@ void SessionStrip::updateButtonLabels()
     juce::String text;
     bool primary = false;
 
-    if (! sessionTimer.hasEverStarted())
+     if (! sessionTimer.hasEverStarted())
     {
-        // Nothing has started yet — the user needs to press this.
         text = "Start";
-        primary = true;
+        primary = false; // Grey
     }
     else if (sessionTimer.isRunning())
     {
-        // Clock is counting. Pressing will stop it.
         text = "Stop";
-        primary = false;
+        primary = true;  // Red Glow
     }
     else if (sessionTimer.isAutoPaused())
     {
-        // Idle for longer than the auto-pause threshold. The clock will
-        // resume on its own when activity returns; pressing the button
-        // forces an immediate resume. Neutral styling signals that no
-        // user action is required.
         text = "Waiting";
-        primary = false;
+        primary = false; // Handled by custom gradient
     }
     else
     {
-        // Manually paused. Only the user can resume, so this is the
-        // primary action.
         text = "Continue";
-        primary = true;
+        primary = false; // Grey
     }
 
     // Three-state appearance:
@@ -589,4 +419,46 @@ juce::String SessionStrip::formatHMS (juce::int64 ms)
     return juce::String (hours).paddedLeft ('0', 2) + ":"
          + juce::String (minutes).paddedLeft ('0', 2) + ":"
          + juce::String (seconds).paddedLeft ('0', 2);
+}
+
+void SessionStrip::paintOverChildren (juce::Graphics& g)
+{
+    // We only draw the custom gradient when the button is in the "Waiting" state
+    if (toggleButton.getButtonText() == "Waiting")
+    {
+        auto bounds = toggleButton.getBounds().toFloat().reduced (0.5f);
+        const float radius = Radius::control;
+
+        // 1. Draw the base button shape
+        g.setColour (Theme::surfaceRaised.darker (0.35f));
+        g.fillRoundedRectangle (bounds, radius);
+
+        // 2. Radial gradient (lighter red center fading to grey)
+        const auto centre = bounds.getCentre();
+        const auto gradRadius = juce::jmax (bounds.getWidth(), bounds.getHeight()) * 0.6f;
+
+        const auto centerColor = Theme::accentRed; 
+        const auto edgeColor = Theme::surfaceRaised.darker (0.35f);
+
+        juce::ColourGradient glowGrad (
+            centerColor, centre.x, centre.y,
+            edgeColor, centre.x + gradRadius, centre.y,
+            true);
+
+        g.setGradientFill (glowGrad);
+        g.fillRoundedRectangle (bounds, radius);
+
+        // 3. Border
+        g.setColour (juce::Colours::black.withAlpha (0.85f));
+        g.drawRoundedRectangle (bounds, radius, 1.0f);
+
+        // 4. Draw text using the LookAndFeel, translated to the button's position
+        juce::Graphics::ScopedSaveState save (g);
+        g.setOrigin (toggleButton.getPosition()); 
+        
+        if (auto* lf = dynamic_cast<ReferenceMaxLookAndFeel*> (&getLookAndFeel()))
+        {
+            lf->drawButtonText (g, toggleButton, false, false);
+        }
+    }
 }

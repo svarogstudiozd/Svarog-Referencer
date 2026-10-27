@@ -28,7 +28,7 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
 
     titleLabel.setText ("Svarog Referencer +", juce::dontSendNotification);
     titleLabel.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    titleLabel.setColour (juce::Label::textColourId, Theme::greyLight);
+
     addAndMakeVisible (titleLabel);
 
     subtitleLabel.setText ("Mixing and Mastering Reference Check", juce::dontSendNotification);

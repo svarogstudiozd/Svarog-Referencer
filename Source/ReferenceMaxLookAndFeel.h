@@ -885,21 +885,31 @@ public:
         {
             juce::Graphics::ScopedSaveState save (g);
 
-            const bool atRightEnd = fillRight >= bounds.getRight() - 0.5f;
-            const bool roundTopRight    = atRightEnd;
-            const bool roundBottomRight = atRightEnd;
+            // Inset the red fill by 1.5 pixels on all sides.
+            // This is aggressive enough to fully contain it inside the well's border.
+            auto fillBounds = bounds.reduced (1.5f, 1.5f);
+            
+            // Recalculate the width relative to the inset bounds
+            float fillWidth = fillRight - fillBounds.getX();
+            if (fillWidth < 1.0f)
+                fillWidth = 1.0f;
+
+            // Use a slightly smaller radius so the fill's curves nest perfectly inside the well's curves.
+            const float innerRadius = juce::jmax (0.0f, cornerRadius - 1.5f);
 
             juce::Path fillClip;
-            fillClip.addRoundedRectangle (bounds.getX(),
-                                          bounds.getY(),
-                                          fillRight - bounds.getX(),
-                                          bounds.getHeight(),
-                                          cornerRadius,
-                                          cornerRadius,
-                                          true,
-                                          roundTopRight,
-                                          true,
-                                          roundBottomRight);
+            // Force the fill to be fully rounded on ALL four corners at all times.
+            // This means it never has a flat edge that could bleed outside the well.
+            fillClip.addRoundedRectangle (fillBounds.getX(),
+                                          fillBounds.getY(),
+                                          fillWidth,
+                                          fillBounds.getHeight(),
+                                          innerRadius,
+                                          innerRadius,
+                                          true,  // round top-left
+                                          true,  // round top-right
+                                          true,  // round bottom-left
+                                          true); // round bottom-right
             g.reduceClipRegion (fillClip, {});
 
             // Read the animated hover progress published by GainSlider.

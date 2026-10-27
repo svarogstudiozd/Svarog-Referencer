@@ -474,11 +474,26 @@ void SpectrumDisplay::paint (juce::Graphics& g)
         for (float db : dbTicks)
         {
             const float y = plot.getY() + dbToY (db) * plot.getHeight();
+
+            // Clamp the label box so it never extends above the plot's
+            // top edge or below its bottom edge.
+            constexpr int labelHeight = 10;
+            int labelY = (int) y - labelHeight / 2;
+
+            const int plotTop    = (int) plot.getY();
+            const int plotBottom = (int) plot.getBottom();
+
+            if (labelY < plotTop)
+                labelY = plotTop;
+
+            if (labelY + labelHeight > plotBottom)
+                labelY = plotBottom - labelHeight;
+
             g.drawFittedText (juce::String ((int) db),
                               juce::Rectangle<int> ((int) leftAxis.getX(),
-                                                    (int) y - 6,
+                                                    labelY,
                                                     (int) leftAxis.getWidth() - 4,
-                                                    12),
+                                                    labelHeight),
                               juce::Justification::centredRight, 1);
         }
     }
@@ -503,10 +518,25 @@ void SpectrumDisplay::paint (juce::Graphics& g)
         for (auto [freq, label] : freqTicks)
         {
             const float x = plot.getX() + freqToX (freq) * plot.getWidth();
+
+            // Clamp the label box so it never extends past the plot bounds.
+            constexpr int labelWidth = 15;
+            int labelX = (int) x - labelWidth / 2;
+
+            // Keep the box inside the plot's left and right edges.
+            const int plotLeft  = (int) plot.getX();
+            const int plotRight = (int) plot.getRight();
+
+            if (labelX < plotLeft)
+                labelX = plotLeft;
+
+            if (labelX + labelWidth > plotRight)
+                labelX = plotRight - labelWidth;
+
             g.drawFittedText (label,
-                              juce::Rectangle<int> ((int) x - 20,
+                              juce::Rectangle<int> (labelX,
                                                     (int) bottomAxis.getY(),
-                                                    40,
+                                                    labelWidth,
                                                     (int) bottomAxis.getHeight()),
                               juce::Justification::centred, 1);
         }

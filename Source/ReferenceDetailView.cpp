@@ -159,6 +159,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     gainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     gainSlider.setRange (-24.0, 12.0, 0.1);
     gainSlider.setDoubleClickReturnValue (true, 0.0);
+    gainSlider.setSliderSnapsToMousePosition (false);
     gainSlider.setInterceptsMouseClicks (true, true);
     gainSlider.setColour (juce::Slider::thumbColourId,        Theme::greyLight);
     gainSlider.setColour (juce::Slider::trackColourId,        Theme::accentRedBright);
