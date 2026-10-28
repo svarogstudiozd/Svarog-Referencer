@@ -32,7 +32,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     replaceButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (replaceButton);
     
-    replaceButton.getProperties().set ("fontSize", 12.0f);
+    replaceButton.getProperties().set ("fontSize", 13.0f);
 
     // Replace button: neutral panel colour, matching the other
     // non-engaged buttons in the row.
@@ -43,7 +43,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     replaceButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (replaceButton);
 
-    replaceButton.getProperties().set ("fontSize", 12.0f);
+    replaceButton.getProperties().set ("fontSize", 13.0f);
 
     // Add button: appends a new empty slot.
     addButton.onClick = [this]
@@ -75,7 +75,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     addButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
     addButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
     addButton.setInterceptsMouseClicks (true, true);
-    addButton.getProperties().set ("fontSize", 12.0f);
+    addButton.getProperties().set ("fontSize", 13.0f);
     addButton.setTooltip ("Add a new reference slot");
     addAndMakeVisible (addButton);
 
@@ -92,13 +92,13 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     loopButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (loopButton);
 
-    loopButton.getProperties().set ("fontSize", 12.0f);
+    loopButton.getProperties().set ("fontSize", 13.0f);
 
     followButton.setClickingTogglesState (false);
     followButton.onClick = [this] { toggleFollow(); };
     followButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (followButton);
-    followButton.getProperties().set ("fontSize", 12.0f);
+    followButton.getProperties().set ("fontSize", 13.0f);
 
     matchButton.setClickingTogglesState (false);
     matchButton.onClick = [this] { onMatchButtonClicked(); };
@@ -117,7 +117,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     matchButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (matchButton);
 
-    matchButton.getProperties().set ("fontSize", 12.0f);
+    matchButton.getProperties().set ("fontSize", 13.0f);
 
     offsetButton.setClickingTogglesState (false);
     offsetButton.onClick = [this] { onOffsetButtonClicked(); };
@@ -125,7 +125,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     offsetButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (offsetButton);
 
-    offsetButton.getProperties().set ("fontSize", 12.0f);
+    offsetButton.getProperties().set ("fontSize", 13.0f);
 
     playheadTimeLabel.setText ("--:--", juce::dontSendNotification);
     playheadTimeLabel.setFont (juce::FontOptions (14.0f, juce::Font::bold));
