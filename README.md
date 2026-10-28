@@ -49,7 +49,8 @@ This is an upgraded version of the original Svarog Referencer. The core workflow
 
 ## Installation
 
-**macOS**
+**macOS:**
+
 Download the latest macOS .pkg from the Releases page.
 
 Double-click the .pkg and follow the installer.
@@ -62,20 +63,23 @@ When macOS blocks the plugin with a "cannot be opened" message, run this in Term
 
 
 sudo xattr -cr "/Library/Audio/Plug-Ins/Components/Svarog Referencer +.component"
+
 sudo xattr -cr "/Library/Audio/Plug-Ins/VST3/Svarog Referencer +.vst3"
+
 Restart your DAW.
 
 Uninstallation (macOS)
 
 sudo rm -rf "/Library/Audio/Plug-Ins/Components/Svarog Referencer +.component"
+
 sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Svarog Referencer +.vst3"
 
 
-**Windows**
+**Windows:**
+
 Download the latest Windows .zip from the Releases page and unzip it.
 
 Copy Svarog Referencer +.vst3 to:
-
 
 C:\Program Files\Common Files\VST3
 Windows might ask for administrator permission. Click Continue.
@@ -100,6 +104,7 @@ The Project Tracking section at the bottom counts your session time. Press Start
 
 
 **Known limitations**
+
 Unsigned build. The plugin is not code-signed or notarized. macOS will warn you on first install, and you may need to allow it in Privacy & Security and/or run the xattr command above.
 
 Latency. The plugin reports 512 samples of latency to the host. Logic and other DAWs compensate automatically via Plugin Delay Compensation. This is used to smooth some internal state changes.
@@ -107,6 +112,7 @@ Latency. The plugin reports 512 samples of latency to the host. Logic and other 
 Personal project. I'll fix what I can when I can, but there's no support commitment.
 
 **Feedback**
+
 Open an issue on GitHub. If you're reporting a bug, please include:
 
 macOS or Windows version
@@ -118,6 +124,7 @@ Plugin format (AU or VST3)
 A short description of what you did and what happened
 
 **License**
+
 Copyright (c) 2026 Šime Alavanja, Svarog Studio
 
 Permission is granted to use this software for personal and commercial purposes. Redistribution in source or binary form, with or without modification, is permitted provided this notice is retained. This software is provided "as is", without warranty of any kind.
