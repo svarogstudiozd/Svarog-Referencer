@@ -820,36 +820,78 @@ void SpectrumDisplay::drawDeltaFill (juce::Graphics& g,
         return vLo + frac * (vHi - vLo);
     };
 
-    // Fill colours: the two hue families at reduced alpha. The bright
-    // outline on top is drawn separately by drawCurve (invoked from
-    // paint()), so we don't need any border here.
     const auto refFillColour = Theme::refTrace.withMultipliedAlpha (0.40f);
     const auto dawFillColour = Theme::dawTrace.withMultipliedAlpha (0.40f);
 
-    constexpr float overlapPx = 1.0f;
-    constexpr float sliceWidth = 1.5f;
-
     const int pixelColumns = juce::jmax (1, (int) area.getWidth());
+
+    // Build one path per colour: a closed polygon covering the region
+    // where that colour's curve is on top of the other. We build it
+    // column by column, with the top edge traced left-to-right and the
+    // bottom edge traced right-to-left, so each contiguous run of
+    // columns for one colour becomes one closed sub-path.
+    juce::Path refPath;
+    juce::Path dawPath;
+
+    // Track the current run for each colour. These store the top and
+    // bottom Y of the delta region at each column of the run.
+    std::vector<float> refTops, refBottoms;
+    std::vector<float> dawTops, dawBottoms;
+
+    auto flushRun = [&] (juce::Path& target,
+                         std::vector<float>& tops,
+                         std::vector<float>& bottoms,
+                         int startCol)
+    {
+        if (tops.empty())
+            return;
+
+        const float x0 = area.getX() + (float) startCol;
+
+        target.startNewSubPath (x0, tops.front());
+
+        for (size_t i = 1; i < tops.size(); ++i)
+            target.lineTo (x0 + (float) i, tops[i]);
+
+        for (size_t i = bottoms.size(); i > 0; --i)
+            target.lineTo (x0 + (float) (i - 1), bottoms[i - 1]);
+
+        target.closeSubPath();
+
+        tops.clear();
+        bottoms.clear();
+    };
+
+    int refRunStart = 0;
+    int dawRunStart = 0;
 
     for (int col = 0; col < pixelColumns; ++col)
     {
-        const float x = area.getX() + (float) col;
-
         const float t0 = (float) col / (float) pixelColumns;
         const float t1 = (float) (col + 1) / (float) pixelColumns;
 
         const float f0 = xToFreq (t0);
         const float f1 = xToFreq (t1);
 
+        // Helper: flush both runs and clear state.
+        auto flushBoth = [&] (int currentCol)
+        {
+            flushRun (refPath, refTops, refBottoms, refRunStart);
+            flushRun (dawPath, dawTops, dawBottoms, dawRunStart);
+            juce::ignoreUnused (currentCol);
+        };
+
         if (f1 < minFreq)
+        {
+            flushBoth (col);
             continue;
+        }
 
         const float freqMid = std::sqrt (juce::jmax (minFreq, f0)
                                        * juce::jmax (minFreq, f1));
         const float binCoord = freqMid / binHzF;
 
-        float dawDb;
-        float refDb;
+        float dawDb, refDb;
 
         if (f1 - f0 < binHzF)
         {
@@ -864,8 +906,7 @@ void SpectrumDisplay::drawDeltaFill (juce::Graphics& g,
             b0 = juce::jlimit (1, numBins - 1, b0);
             b1 = juce::jlimit (1, numBins - 1, b1);
 
-            if (b1 < b0)
-                b1 = b0;
+            if (b1 < b0) b1 = b0;
 
             float dawMax = floorSnapDb;
             float refMax = floorSnapDb;
@@ -883,7 +924,10 @@ void SpectrumDisplay::drawDeltaFill (juce::Graphics& g,
         }
 
         if (dawDb <= floorSnapDb && refDb <= floorSnapDb)
+        {
+            flushBoth (col);
             continue;
+        }
 
         const float octavesFrom1k = std::log2 (juce::jmax (1.0f, freqMid) / 1000.0f);
         const float tilt = tiltSlopeDbPerOctave * octavesFrom1k;
@@ -891,30 +935,56 @@ void SpectrumDisplay::drawDeltaFill (juce::Graphics& g,
         const float dawY = area.getY() + dbToY (dawDb + tilt) * area.getHeight();
         const float refY = area.getY() + dbToY (refDb + tilt) * area.getHeight();
 
-        if (std::abs (dawY - refY) < overlapPx)
+        if (std::abs (dawY - refY) < 1.0f)
+        {
+            flushBoth (col);
             continue;
+        }
 
         const bool refAbove = refY < dawY;
-
         const float top    = refAbove ? refY : dawY;
         const float bottom = refAbove ? dawY : refY;
 
-                // Fill only — no border. The bright outline comes from the
-        // stroked curve drawn afterwards by drawCurve().
-        //
-        // A vertical gradient per column fades the fill toward the
-        // bottom, matching the normal graph's fill treatment.
-        const auto base = refAbove ? refFillColour : dawFillColour;
-        const auto transparent = base.withMultipliedAlpha (0.0f);
+        if (refAbove)
+        {
+            // Close the daw run if it was open.
+            if (! dawTops.empty())
+                flushRun (dawPath, dawTops, dawBottoms, dawRunStart);
 
-        juce::ColourGradient grad (base,
-                                   x, top,
-                                   transparent,
-                                   x, bottom,
-                                   false);
+            if (refTops.empty())
+                refRunStart = col;
 
-        g.setGradientFill (grad);
-        g.fillRect (juce::Rectangle<float> (x, top, sliceWidth, bottom - top));
+            refTops.push_back (top);
+            refBottoms.push_back (bottom);
+        }
+        else
+        {
+            if (! refTops.empty())
+                flushRun (refPath, refTops, refBottoms, refRunStart);
+
+            if (dawTops.empty())
+                dawRunStart = col;
+
+            dawTops.push_back (top);
+            dawBottoms.push_back (bottom);
+        }
+    }
+
+    // Close any runs still open at the right edge.
+    flushRun (refPath, refTops, refBottoms, refRunStart);
+    flushRun (dawPath, dawTops, dawBottoms, dawRunStart);
+
+    // Draw each path once, with a solid colour. No gradient, no seams.
+    if (! refPath.isEmpty())
+    {
+        g.setColour (refFillColour);
+        g.fillPath (refPath);
+    }
+
+    if (! dawPath.isEmpty())
+    {
+        g.setColour (dawFillColour);
+        g.fillPath (dawPath);
     }
 }
 

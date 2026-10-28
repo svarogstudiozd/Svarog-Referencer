@@ -202,7 +202,7 @@ public:
             : normalColour.withMultipliedAlpha (0.4f);
 
         const int hPad = 4;
-        const int vPad = 2;
+        const int vPad = 0;
 
         const auto textArea = button.getLocalBounds().reduced (hPad, vPad);
 
@@ -220,10 +220,10 @@ public:
 
         // Draw the actual text on top.
         g.setColour (textColour);
-        g.drawFittedText (button.getButtonText(),
-                          textArea,
-                          juce::Justification::centred,
-                          1);
+        g.drawText (button.getButtonText(),
+            textArea,
+            juce::Justification::centred,
+            false);   // <-- false = don't shrink to fit
     }
 
     //==========================================================================
