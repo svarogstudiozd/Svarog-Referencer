@@ -16,11 +16,12 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     // past the other.
     updateCrossoverClamps();
 
-    titleLabel.setText ("Filter", juce::dontSendNotification);
-    
-    titleLabel.setMinimumHorizontalScale (1.0f);
-    titleLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
-    addAndMakeVisible (titleLabel);
+titleLabel.setText ("Filter", juce::dontSendNotification);
+titleLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
+titleLabel.setMinimumHorizontalScale (1.0f);
+titleLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
+titleLabel.setJustificationType (juce::Justification::centredLeft);
+addAndMakeVisible (titleLabel);
 
     auto setupSoloButton = [this] (juce::TextButton& b, int choice)
     {
@@ -115,7 +116,7 @@ void FilterBar::resized()
 {
     auto bounds = getLocalBounds().reduced (10, 6);
 
-    titleLabel.setBounds (bounds.removeFromLeft (40));
+    titleLabel.setBounds (bounds.removeFromLeft (52));
     bounds.removeFromLeft (6);
 
     const int buttonWidth = 78;

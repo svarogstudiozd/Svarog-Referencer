@@ -13,14 +13,6 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
       sessionStrip (p.getSessionTimer(), p.apvts)
 {
 
-juce::AlertWindow::showMessageBoxAsync (
-    juce::MessageBoxIconType::InfoIcon,
-    "Font check",
-    juce::String ("Inter Bold: ")
-      + (ReferenceMaxLookAndFeel::getInterBold() != nullptr ? "yes" : "no")
-      + "\nInter Regular: "
-      + (ReferenceMaxLookAndFeel::getInterRegular() != nullptr ? "yes" : "no"));
-
     setLookAndFeel (&customLookAndFeel);
 
     auto& lf = getLookAndFeel();

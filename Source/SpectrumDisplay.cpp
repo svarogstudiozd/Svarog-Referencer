@@ -63,6 +63,7 @@ SpectrumDisplay::SpectrumDisplay()
     deltaButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     deltaButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
     deltaButton.getProperties().set ("fontSize", 14.0f);
+    deltaButton.getProperties().set ("cornerRadius", 4.0f);
     deltaButton.setTooltip ("Show only the differences between the DAW and "
                             "the reference curves.");
 
@@ -80,7 +81,9 @@ SpectrumDisplay::SpectrumDisplay()
     expandButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
     expandButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     expandButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
-    expandButton.getProperties().set ("fontSize", 14.0f);
+    expandButton.getProperties().set ("fontSize", 15.0f);
+    expandButton.getProperties().set ("textNudgeY", 1);
+    expandButton.getProperties().set ("cornerRadius", 4.0f);
     expandButton.setTooltip ("Expand the spectrum to fill the plugin window.");
 
     expandButton.onClick = [this]

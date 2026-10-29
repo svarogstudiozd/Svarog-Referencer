@@ -26,6 +26,7 @@ LufsMeterComponent::LufsMeterComponent()
     // Small text so the six-character label fits comfortably inside the
     // narrow meter width. Read by ReferenceMaxLookAndFeel::drawButtonText.
     modeButton.getProperties().set ("fontSize", 10.0f);
+    modeButton.getProperties().set ("cornerRadius", 4.0f);
 
     modeButton.setButtonText (currentLabel());
     addAndMakeVisible (modeButton);
