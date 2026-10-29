@@ -14,7 +14,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
 {
     // ---- Toggle button (Start / Pause / Continue) ----
     addAndMakeVisible (toggleButton);
-    toggleButton.getProperties().set ("fontSize", 12.0f);
+    toggleButton.getProperties().set ("fontSize", 13.0f);
     toggleButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
     toggleButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
     toggleButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
@@ -33,7 +33,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
 
     // ---- Auto-pause toggle ----
     addAndMakeVisible (autoPauseButton);
-    autoPauseButton.getProperties().set ("fontSize", 12.0f);
+    autoPauseButton.getProperties().set ("fontSize", 13.0f);
     autoPauseButton.setButtonText ("Auto pause");
     autoPauseButton.setClickingTogglesState (true);
     autoPauseButton.setToggleState (sessionTimer.isAutoPauseEnabled(),
@@ -75,7 +75,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
 
     // ---- Session time label ----
     addAndMakeVisible (sessionLabel);
-    sessionLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
+    sessionLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
     sessionLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
     sessionLabel.setJustificationType (juce::Justification::centredLeft);
 
@@ -87,7 +87,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
 
     // ---- Reset button ----
     addAndMakeVisible (resetButton);
-    resetButton.getProperties().set ("fontSize", 12.0f);
+    resetButton.getProperties().set ("fontSize", 13.0f);
     resetButton.setButtonText ("Reset");
     resetButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
     resetButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRedBright);

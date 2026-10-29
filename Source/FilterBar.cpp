@@ -27,7 +27,7 @@ addAndMakeVisible (titleLabel);
     {
         b.setClickingTogglesState (false);
         b.onClick = [this, choice] { toggleSoloChoice (choice); };
-        b.getProperties().set ("fontSize", 12.0f);
+        b.getProperties().set ("fontSize", 13.0f);
         addAndMakeVisible (b);
     };
 
@@ -42,7 +42,7 @@ addAndMakeVisible (titleLabel);
     {
         b.setClickingTogglesState (true);
         b.onClick = [this] { repaint(); };
-        b.getProperties().set ("fontSize", 12.0f);
+        b.getProperties().set ("fontSize", 13.0f);
         addAndMakeVisible (b);
     };
 

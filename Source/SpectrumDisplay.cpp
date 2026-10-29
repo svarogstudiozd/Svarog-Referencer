@@ -56,7 +56,7 @@ SpectrumDisplay::SpectrumDisplay()
 {
     setInterceptsMouseClicks (true, false);
 
-    deltaButton.setButtonText (juce::CharPointer_UTF8 ("\xce\x94"));
+    deltaButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x96\xb3"));
     deltaButton.setClickingTogglesState (true);
     deltaButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
     deltaButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
@@ -75,7 +75,7 @@ SpectrumDisplay::SpectrumDisplay()
 
     addAndMakeVisible (deltaButton);
 
-    expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x97\xb1"));
+    expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x97\xb0"));
     expandButton.setClickingTogglesState (true);
     expandButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
     expandButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
@@ -92,8 +92,7 @@ SpectrumDisplay::SpectrumDisplay()
 
     // Swap between filled-corner glyph (off) and hollow square (on).
     expandButton.setButtonText (juce::CharPointer_UTF8 (expanded ? "\xe2\x96\xa1"   // U+25A1 □
-                                                                : "\xe2\x97\xb1")); // U+25F1 ◱
-
+                                                                : "\xe2\x97\xb0")); // U+25F0 ◰
     if (onExpandToggled)
         onExpandToggled (expanded);
 };
