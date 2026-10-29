@@ -58,7 +58,7 @@ SpectrumDisplay::SpectrumDisplay()
 
     deltaButton.setButtonText (juce::CharPointer_UTF8 ("\xce\x94"));
     deltaButton.setClickingTogglesState (true);
-    deltaButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
+    deltaButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
     deltaButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
     deltaButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     deltaButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
@@ -77,7 +77,7 @@ SpectrumDisplay::SpectrumDisplay()
 
     expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x9b\xb6"));
     expandButton.setClickingTogglesState (true);
-    expandButton.setColour (juce::TextButton::buttonColourId,   Theme::panel);
+    expandButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
     expandButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
     expandButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     expandButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
@@ -1070,11 +1070,12 @@ g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegul
     // In delta mode the legend entries show as "informational only" and
     // are dimmed regardless, since the delta view always draws both
     // curves. This mirrors the earlier behaviour.
-    auto entryColours = [&] (bool visible, bool hovered,
+       auto entryColours = [&] (bool visible, bool hovered,
                              juce::Colour dotBase)
     {
         float dotAlpha;
         juce::Colour textColour;
+        juce::Colour dotColour = dotBase;
 
         if (deltaMode)
         {
@@ -1086,9 +1087,16 @@ g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegul
             dotAlpha   = 0.30f;
             textColour = Theme::textSecondary.withMultipliedAlpha (0.55f);
         }
-        else if (hovered)
+                else if (hovered)
         {
             dotAlpha   = 1.0f;
+
+            // The grey DAW dot brightens well toward white, but the red
+            // Ref dot turns pale if we push it too far. Brighten it more
+            // gently so it stays saturated.
+            const bool isRefDot = dotBase.getRed() > dotBase.getGreen() * 2;
+            dotColour  = dotBase.brighter (isRefDot ? 0.15f : 0.3f);
+
             textColour = juce::Colours::white;
         }
         else
@@ -1097,7 +1105,7 @@ g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegul
             textColour = Theme::textPrimary;
         }
 
-        return std::make_pair (dotBase.withMultipliedAlpha (dotAlpha), textColour);
+        return std::make_pair (dotColour.withMultipliedAlpha (dotAlpha), textColour);
     };
 
     auto drawEntry = [&] (juce::Rectangle<int> entryBounds,
@@ -1115,6 +1123,8 @@ g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegul
                        6.0f, 6.0f);
 
         // Label.
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold())
+                                   .withHeight (11.5f)));
         g.setColour (textColour);
         g.drawText (label,
                     entryBounds.getX() + 14,

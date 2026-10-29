@@ -252,9 +252,11 @@ else
                         .withHeight (fontSize));
     g.setFont (font);
 
-    const auto normalColour = button.findColour (button.getToggleState()
-                                                 ? juce::TextButton::textColourOnId
-                                                 : juce::TextButton::textColourOffId);
+        // Engaged buttons use bright off-white for maximum contrast against
+    // the red glow. Off-state buttons use their configured off colour.
+    const auto normalColour = button.getToggleState()
+        ? Theme::textPrimary
+        : button.findColour (juce::TextButton::textColourOffId);
 
     const auto textColour = button.isEnabled()
         ? normalColour
@@ -838,7 +840,7 @@ void drawRecessedControl (juce::Graphics& g,
                                                     (float) width, (float) height)
                                 .reduced (0.5f, 3.0f);
 
-                const float cornerRadius = cornerRadius;
+                const float cornerRadius = Radius::control;
 
         const float minPos = bounds.getX();
         const float maxPos = bounds.getRight();
