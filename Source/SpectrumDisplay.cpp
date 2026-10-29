@@ -43,7 +43,7 @@ namespace
     }
 
     constexpr int smallButtonWidth  = 25;
-    constexpr int smallButtonHeight = 18;
+    constexpr int smallButtonHeight = 20;
     constexpr int smallButtonRightMargin = 14;
     constexpr int smallButtonTopMargin   = 12;
     constexpr int smallButtonGap         = 6;
@@ -75,23 +75,28 @@ SpectrumDisplay::SpectrumDisplay()
 
     addAndMakeVisible (deltaButton);
 
-    expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x9b\xb6"));
+    expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x97\xb1"));
     expandButton.setClickingTogglesState (true);
     expandButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
     expandButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
     expandButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
     expandButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
-    expandButton.getProperties().set ("fontSize", 15.0f);
-    expandButton.getProperties().set ("textNudgeY", 1);
+    expandButton.getProperties().set ("fontSize", 16.0f);
+  
     expandButton.getProperties().set ("cornerRadius", 4.0f);
     expandButton.setTooltip ("Expand the spectrum to fill the plugin window.");
 
     expandButton.onClick = [this]
-    {
-        expanded = expandButton.getToggleState();
-        if (onExpandToggled)
-            onExpandToggled (expanded);
-    };
+{
+    expanded = expandButton.getToggleState();
+
+    // Swap between filled-corner glyph (off) and hollow square (on).
+    expandButton.setButtonText (juce::CharPointer_UTF8 (expanded ? "\xe2\x96\xa1"   // U+25A1 □
+                                                                : "\xe2\x97\xb1")); // U+25F1 ◱
+
+    if (onExpandToggled)
+        onExpandToggled (expanded);
+};
 
     addAndMakeVisible (expandButton);
 
