@@ -228,7 +228,7 @@ void LevelMeterComponent::paint (juce::Graphics& g)
     // dB scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::FontOptions (9.0f));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (9.0f)));
 
         const float dbTicks[] = { 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 
@@ -295,7 +295,7 @@ void LevelMeterComponent::paint (juce::Graphics& g)
         const bool isSilent = heldPeakDb <= minDb + 0.5f;
 
         g.setColour (isSilent ? Theme::textFaint : Theme::greyLight);
-        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
 
         const juce::String txt = isSilent
             ? juce::String ("--")
@@ -311,7 +311,7 @@ void LevelMeterComponent::paint (juce::Graphics& g)
     // Bigger and brighter for readability at meter width.
     {
         g.setColour (Theme::textPrimary);
-        g.setFont (juce::FontOptions (10.5f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (10.5f)));
 
         g.drawFittedText ("RMS",
                           labelStrip.toNearestInt(),

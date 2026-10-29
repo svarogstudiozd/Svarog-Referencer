@@ -292,7 +292,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     // Scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::FontOptions (9.0f));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (9.0f)));
 
         const float ticks[] = { 0.0f, -9.0f, -14.0f, -24.0f, -40.0f };
 
@@ -314,7 +314,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     // Top numeric value
     {
         g.setColour (isSilent ? Theme::textFaint : Theme::greyLight);
-        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
 
         const juce::String txt = isSilent
             ? juce::String ("--")

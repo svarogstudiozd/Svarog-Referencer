@@ -144,7 +144,7 @@ void DraggableValueBox::paint (juce::Graphics& g)
         textColour = Theme::textSecondary;
 
     g.setColour (textColour);
-    g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize)));
 
     // Subtle text shadow for a lifted feel on the recessed surface.
     if (enabled)

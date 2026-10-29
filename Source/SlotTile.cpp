@@ -22,7 +22,7 @@ public:
         const auto colour = hovered ? Theme::greyLight : Theme::textSecondary;
 
         g.setColour (colour);
-        g.setFont (juce::FontOptions (16.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (16.0f)));
 
         g.drawFittedText (juce::String::charToString ((juce::juce_wchar) 0x00D7),
                           getLocalBounds(),
@@ -162,7 +162,7 @@ void SlotTile::paint (juce::Graphics& g)
 
     auto refArea = textArea.removeFromLeft (48);
     g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
-    g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize)));
     g.drawFittedText ("REF " + juce::String (logical + 1),
                       refArea,
                       juce::Justification::centredLeft,
@@ -177,7 +177,7 @@ void SlotTile::paint (juce::Graphics& g)
     else
         g.setColour (loaded ? Theme::greyLight : Theme::textPrimary);
 
-    g.setFont (juce::FontOptions (Typography::bodySize));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (Typography::bodySize)));
 
     juce::String display = status;
     if (loading)

@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "Theme.h"
 #include <functional>
+#include "ReferenceMaxLookAndFeel.h"
 
 /**
     A two-segment toggle button.
@@ -195,7 +196,7 @@ public:
         // Labels.
         // -----------------------------------------------------------------
         {
-            g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
+            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
 
             auto drawLabel = [&] (juce::Rectangle<float> half,
                                   const juce::String& label,

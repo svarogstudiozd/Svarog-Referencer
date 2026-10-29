@@ -17,7 +17,7 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
     updateCrossoverClamps();
 
     titleLabel.setText ("Filter", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    titleLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::titleSize)));
     titleLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
     addAndMakeVisible (titleLabel);
 

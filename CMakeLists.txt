@@ -7,13 +7,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
+
+
 FetchContent_Declare(
     juce
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG        9.0.1
     GIT_SHALLOW    TRUE
 )
+
+
+
 FetchContent_MakeAvailable(juce)
+
 
 juce_add_plugin(SvarogReferencerPlus
     COMPANY_NAME "Svarog Studio"
@@ -74,6 +80,12 @@ target_sources(SvarogReferencerPlus
         Source/SessionStrip.cpp     # <-- ADDED
 )
 
+juce_add_binary_data(SvarogReferencerPlus_Assets
+    SOURCES
+        Source/Fonts/Inter_18pt-Bold.ttf
+        Source/Fonts/Inter_18pt-Regular.ttf
+)
+
 target_compile_definitions(SvarogReferencerPlus
     PUBLIC
         JUCE_WEB_BROWSER=0
@@ -84,6 +96,7 @@ target_compile_definitions(SvarogReferencerPlus
 
 target_link_libraries(SvarogReferencerPlus
     PRIVATE
+        SvarogReferencerPlus_Assets
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

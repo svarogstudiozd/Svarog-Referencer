@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "Theme.h"
+#include "BinaryData.h"
 
 /**
     Custom LookAndFeel for Svarog Referencer.
@@ -29,6 +30,60 @@ class ReferenceMaxLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     ReferenceMaxLookAndFeel() = default;
+
+    static juce::Typeface::Ptr getInterBold()
+    {
+        static auto tf = juce::Typeface::createSystemTypefaceFor (
+            BinaryData::Inter_18ptBold_ttf,
+            BinaryData::Inter_18ptBold_ttfSize);
+        return tf;
+    }
+
+    static juce::Typeface::Ptr getInterRegular()
+    {
+        static auto tf = juce::Typeface::createSystemTypefaceFor (
+            BinaryData::Inter_18ptRegular_ttf,
+            BinaryData::Inter_18ptRegular_ttfSize);
+        return tf;
+    }
+
+    //==========================================================================
+    // Font overrides — every Label and TextButton in the plugin uses Inter.
+    //==========================================================================
+
+    juce::Font getLabelFont (juce::Label& label) override
+    {
+        const auto current = label.getFont();
+
+        // Preserve the weight the Label was configured with, but swap
+        // the typeface to Inter. This way setFont(juce::FontOptions(13, bold))
+        // still produces bold Inter @ 13, and default labels get
+        // regular Inter at their default height.
+        const auto style = current.getTypefaceStyle();
+        const bool isBold = style.containsIgnoreCase ("bold")
+                         || style.containsIgnoreCase ("black")
+                         || style.containsIgnoreCase ("heavy");
+
+        const auto base = isBold ? getInterBold() : getInterRegular();
+
+        return juce::Font (juce::FontOptions (base)
+                               .withHeight (current.getHeight()));
+    }
+
+    juce::Font getTextButtonFont (juce::TextButton& button, int buttonHeight) override
+    {
+        // Per-button fontSize is set in each button's constructor via
+        // getProperties().set("fontSize", N). Use it if present, otherwise
+        // derive something sensible from the button height.
+        const auto fontSizeVar = button.getProperties()["fontSize"];
+        const float fontSize = fontSizeVar.isVoid()
+            ? juce::jmin (15.0f, (float) buttonHeight * 0.55f)
+            : (float) fontSizeVar;
+
+        return juce::Font (juce::FontOptions (getInterBold())
+                               .withHeight (fontSize));
+    }
+
 
         void drawButtonBackground (juce::Graphics& g,
                                juce::Button& button,
@@ -186,7 +241,8 @@ public:
         const auto fontSizeVar = button.getProperties()["fontSize"];
         const float fontSize = fontSizeVar.isVoid() ? 15.0f : (float) fontSizeVar;
 
-        juce::Font font (juce::FontOptions (fontSize, juce::Font::bold));
+        juce::Font font (juce::FontOptions (getInterBold())
+                            .withHeight (fontSize));
 
         g.setFont (font);
 

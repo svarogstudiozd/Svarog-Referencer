@@ -466,7 +466,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::FontOptions (10.0f));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (10.0f)));
 
          const float dbTicks[] = { 0.0f, -12.0f, -24.0f, -36.0f, -48.0f,
                                   -60.0f, -72.0f, -90.0f };
@@ -500,7 +500,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::FontOptions (10.0f));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (10.0f)));
 
         const std::pair<float, const char*> freqTicks[] = {
             { 20.0f,    "20" },
@@ -1057,7 +1057,7 @@ void SpectrumDisplay::drawLegend (juce::Graphics& g, juce::Rectangle<float> area
     g.setColour (Theme::background.withAlpha (0.8f));
     g.fillRoundedRectangle (legend.toFloat(), 4.0f);
 
-    g.setFont (juce::FontOptions (11.0f));
+g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
 
     // Three visibility/emphasis states per entry:
     //   - visible + hovered  → brightest
@@ -1218,7 +1218,7 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
 
     auto contentArea = box.reduced (paddingX, paddingY);
 
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
 
     {
         auto line1 = contentArea.removeFromTop (lineHeight);

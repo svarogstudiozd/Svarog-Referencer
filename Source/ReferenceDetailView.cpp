@@ -10,7 +10,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     setInterceptsMouseClicks (true, true);
 
     titleLabel.setText ("No reference", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (16.0f, juce::Font::bold));
+    titleLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (16.0f)));
     titleLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     titleLabel.setJustificationType (juce::Justification::centredLeft);
     titleLabel.setInterceptsMouseClicks (false, false);
@@ -32,7 +32,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     replaceButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (replaceButton);
     
-    replaceButton.getProperties().set ("fontSize", 13.0f);
+    replaceButton.getProperties().set ("fontSize", 12.0f);
 
     // Replace button: neutral panel colour, matching the other
     // non-engaged buttons in the row.
@@ -43,7 +43,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     replaceButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (replaceButton);
 
-    replaceButton.getProperties().set ("fontSize", 13.0f);
+    replaceButton.getProperties().set ("fontSize", 12.0f);
 
     // Add button: appends a new empty slot.
     addButton.onClick = [this]
@@ -75,7 +75,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     addButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
     addButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
     addButton.setInterceptsMouseClicks (true, true);
-    addButton.getProperties().set ("fontSize", 13.0f);
+    addButton.getProperties().set ("fontSize", 12.0f);
     addButton.setTooltip ("Add a new reference slot");
     addAndMakeVisible (addButton);
 
@@ -92,13 +92,13 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     loopButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (loopButton);
 
-    loopButton.getProperties().set ("fontSize", 13.0f);
+    loopButton.getProperties().set ("fontSize", 12.0f);
 
     followButton.setClickingTogglesState (false);
     followButton.onClick = [this] { toggleFollow(); };
     followButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (followButton);
-    followButton.getProperties().set ("fontSize", 13.0f);
+    followButton.getProperties().set ("fontSize", 12.0f);
 
     matchButton.setClickingTogglesState (false);
     matchButton.onClick = [this] { onMatchButtonClicked(); };
@@ -117,7 +117,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     matchButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (matchButton);
 
-    matchButton.getProperties().set ("fontSize", 13.0f);
+    matchButton.getProperties().set ("fontSize", 12.0f);
 
     offsetButton.setClickingTogglesState (false);
     offsetButton.onClick = [this] { onOffsetButtonClicked(); };
@@ -125,17 +125,17 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     offsetButton.setInterceptsMouseClicks (true, true);
     addAndMakeVisible (offsetButton);
 
-    offsetButton.getProperties().set ("fontSize", 13.0f);
+    offsetButton.getProperties().set ("fontSize", 12.0f);
 
     playheadTimeLabel.setText ("--:--", juce::dontSendNotification);
-    playheadTimeLabel.setFont (juce::FontOptions (14.0f, juce::Font::bold));
+    playheadTimeLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (14.0f)));
     playheadTimeLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     playheadTimeLabel.setJustificationType (juce::Justification::centredLeft);
     playheadTimeLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (playheadTimeLabel);
 
     timeSeparatorLabel.setText ("|", juce::dontSendNotification);
-    timeSeparatorLabel.setFont (juce::FontOptions (16.0f));
+    timeSeparatorLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (16.0f)));
     timeSeparatorLabel.setColour (juce::Label::textColourId, Theme::border);
     timeSeparatorLabel.setJustificationType (juce::Justification::centred);
     timeSeparatorLabel.setInterceptsMouseClicks (false, false);
@@ -143,14 +143,14 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
 
     gainLabel.setText ("Gain", juce::dontSendNotification);
     gainLabel.setJustificationType (juce::Justification::centredLeft);
-    gainLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    gainLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
     gainLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     gainLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (gainLabel);
 
     gainValueLabel.setText ("+0.0 dB", juce::dontSendNotification);
     gainValueLabel.setJustificationType (juce::Justification::centredRight);
-    gainValueLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    gainValueLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
     gainValueLabel.setColour (juce::Label::textColourId, Theme::greyLight);
     gainValueLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (gainValueLabel);
@@ -844,7 +844,7 @@ void ReferenceDetailView::paint (juce::Graphics& g)
     if (! isNoSlotMode() && statusText.isNotEmpty())
     {
         g.setColour (statusTextColour);
-        g.setFont (juce::FontOptions (Typography::bodySize, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize)));
         g.drawText (statusText,
                     statusRect,
                     juce::Justification::centredLeft,

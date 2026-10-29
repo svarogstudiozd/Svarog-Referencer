@@ -59,7 +59,7 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
     // processing controls above it.
        addAndMakeVisible (sectionLabel);
     sectionLabel.setText ("Project Tracking", juce::dontSendNotification);
-    sectionLabel.setFont (juce::FontOptions (15.0f, juce::Font::bold));
+    sectionLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
     sectionLabel.setColour (juce::Label::textColourId, Theme::textPrimary);
     sectionLabel.setJustificationType (juce::Justification::centredLeft);
 
@@ -75,13 +75,13 @@ SessionStrip::SessionStrip (SessionTimer& timerToUse,
 
     // ---- Session time label ----
     addAndMakeVisible (sessionLabel);
-    sessionLabel.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)));
+    sessionLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
     sessionLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
     sessionLabel.setJustificationType (juce::Justification::centredLeft);
 
     // ---- Total time label ----
     addAndMakeVisible (totalLabel);
-    totalLabel.setFont (juce::Font (juce::FontOptions (15.0f, juce::Font::bold)));
+    totalLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
     totalLabel.setColour (juce::Label::textColourId, Theme::textPrimary);
     totalLabel.setJustificationType (juce::Justification::centredLeft);
 

@@ -1,6 +1,7 @@
 #include "WaveformView.h"
 #include "Theme.h"
 #include "TimeFormat.h"
+#include "ReferenceMaxLookAndFeel.h"
 
 WaveformView::WaveformView (ReferenceSlot& slotToFollow)
     : slot (slotToFollow)
@@ -96,7 +97,7 @@ void WaveformView::paint (juce::Graphics& g)
     {
         const bool isEmpty = ! slot.isLoaded() && ! slot.isLoading();
         g.setColour (isEmpty ? Theme::textSecondary : Theme::textFaint);
-        g.setFont (juce::FontOptions (14.0f));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (14.0f)));
 
         const juce::String placeholder =
             isEmpty ? juce::String ("Click to add a reference")
@@ -275,7 +276,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     if (length <= 0.0)
     {
         g.setColour (Theme::textFaint);
-        g.setFont (12.0f);
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.0f)));
         g.drawFittedText ("--:--", rulerBounds.toNearestInt(), juce::Justification::centred, 1);
         return;
     }
@@ -300,7 +301,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     }
 
     g.setColour (Theme::textSecondary);
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
 
     const int labelBoxWidth = 60;
     const int labelBoxHeight = (int) (rulerBounds.getHeight() - 8.0f + 2);
@@ -368,7 +369,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
             const juce::String label = TimeFormat::mmSs (currentTime);
 
             g.setColour (Theme::textPrimary);
-            g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f)));
 
             int edgeBehavior = 0;
             if (tickCount == 0)
@@ -390,7 +391,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
         const juce::String label = TimeFormat::mmSs (length);
 
         g.setColour (Theme::textPrimary);
-        g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f)));
 
         const auto labelRect = makeLabelRect (x, 2);
         g.drawFittedText (label, labelRect, juce::Justification::centredRight, 1);
