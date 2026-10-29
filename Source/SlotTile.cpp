@@ -162,7 +162,7 @@ void SlotTile::paint (juce::Graphics& g)
 
     auto refArea = textArea.removeFromLeft (48);
     g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize)));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize + 1.0f)));
     g.drawFittedText ("REF " + juce::String (logical + 1),
                       refArea,
                       juce::Justification::centredLeft,
@@ -177,7 +177,7 @@ void SlotTile::paint (juce::Graphics& g)
     else
         g.setColour (loaded ? Theme::greyLight : Theme::textPrimary);
 
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (Typography::bodySize)));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (Typography::bodySize + 1.0f)));
 
     juce::String display = status;
     if (loading)

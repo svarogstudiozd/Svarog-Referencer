@@ -18,6 +18,7 @@ FilterBar::FilterBar (juce::AudioProcessorValueTreeState& apvts)
 
     titleLabel.setText ("Filter", juce::dontSendNotification);
     titleLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::titleSize)));
+    titleLabel.setMinimumHorizontalScale (1.0f);
     titleLabel.setColour (juce::Label::textColourId, Theme::textSecondary);
     addAndMakeVisible (titleLabel);
 
@@ -114,7 +115,7 @@ void FilterBar::resized()
 {
     auto bounds = getLocalBounds().reduced (10, 6);
 
-    titleLabel.setBounds (bounds.removeFromLeft (44));
+    titleLabel.setBounds (bounds.removeFromLeft (56));
     bounds.removeFromLeft (6);
 
     const int buttonWidth = 78;
