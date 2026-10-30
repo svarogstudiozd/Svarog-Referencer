@@ -313,10 +313,10 @@ void LufsMeterComponent::paint (juce::Graphics& g)
         }
     }
 
-    // Scale labels
+     // Scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (9.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
 
         const float ticks[] = { 0.0f, -9.0f, -14.0f, -24.0f, -40.0f };
 

@@ -252,7 +252,7 @@ void LevelMeterComponent::paint (juce::Graphics& g)
     // dB scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (9.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
 
         const float dbTicks[] = { 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 
