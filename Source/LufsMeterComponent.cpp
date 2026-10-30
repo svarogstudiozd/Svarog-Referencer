@@ -118,7 +118,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     const float wellRadius = Radius::well;
 
   // Dark fill.
-    g.setColour (juce::Colour (0xff4a1f1f));
+    g.setColour (juce::Colour (0xff2a2a2a));
     g.fillRoundedRectangle (bounds, wellRadius);
 
     // Inner shadow all around the edges, plus the bottom highlight.
@@ -224,13 +224,36 @@ void LufsMeterComponent::paint (juce::Graphics& g)
                 juce::Colours::white.withAlpha (0.0f),
                 bounds.getRight(), 0.0f,
                 false);
-            fade.addColour (0.04, juce::Colours::white.withAlpha (0.35f));
-            fade.addColour (0.50, juce::Colours::white.withAlpha (0.45f));
-            fade.addColour (0.96, juce::Colours::white.withAlpha (0.35f));
+            fade.addColour (0.04, juce::Colours::white.withAlpha (0.25f));
+            fade.addColour (0.50, juce::Colours::white.withAlpha (0.35f));
+            fade.addColour (0.96, juce::Colours::white.withAlpha (0.25f));
 
             g.setGradientFill (fade);
             g.fillPath (outline);
         }
+        // Unified gradient border (black at top -> white at bottom).
+    {
+        juce::Path borderPath;
+        borderPath.addRoundedRectangle (bounds.reduced (0.5f),
+                                        juce::jmax (0.0f, wellRadius - 0.5f));
+
+        juce::Path outline;
+        juce::PathStrokeType (1.0f,
+                              juce::PathStrokeType::curved,
+                              juce::PathStrokeType::butt)
+            .createStrokedPath (outline, borderPath);
+
+        juce::ColourGradient borderGrad (
+            juce::Colours::black.withAlpha (0.9f),
+            bounds.getX(), bounds.getY(),
+            juce::Colours::white.withAlpha (0.2f),
+            bounds.getX(), bounds.getBottom(),
+            false);
+        borderGrad.addColour (0.4, juce::Colours::grey.withAlpha (0.30f));
+
+        g.setGradientFill (borderGrad);
+        g.fillPath (outline);
+    }
     }
     auto inner = bounds.reduced (4.0f, 4.0f);
 
@@ -258,17 +281,17 @@ void LufsMeterComponent::paint (juce::Graphics& g)
         auto fillArea = bar.withHeight (fillHeight)
                            .withY (bar.getBottom() - fillHeight);
 
-        // Same gradient as the RMS meter: dark red at the bottom,
-        // saturated light red at the top.
-        juce::ColourGradient grad (
-            juce::Colour (0xff6b2020),   // dark red at bottom
-            bar.getX(), fillArea.getBottom(),
-            juce::Colour (0xffd0a8a8),   // light red at top
-            bar.getX(), fillArea.getY(),
-            false);
+        // Same gradient as the RMS meter: dark at the bottom,
+        // light red the top.
+                 juce::ColourGradient grad (
+                juce::Colour (0xff808080 ),   // light grey at bottom
+                bar.getX(), fillArea.getBottom(),
+                juce::Colour (0xffe0e0e0),   // white at top
+                bar.getX(), fillArea.getY(),
+                false);
 
         g.setGradientFill (grad);
-        g.fillRect (fillArea);
+        g.fillRoundedRectangle (fillArea, 2.0f);
 
         // Thin bright line at the top of the fill.
         g.setColour (juce::Colour (0xfffff0f0));

@@ -129,6 +129,26 @@ void SpectrumDisplay::setExpanded (bool shouldBeExpanded)
 
 void SpectrumDisplay::timerCallback()
 {
+    // Dwell tracking: if the mouse has stopped moving, start a timer
+    // so we can decide when to show the detailed peak values.
+    if (hoverInPlot)
+    {
+        if (hoverPos != lastHoverPos)
+        {
+            lastHoverPos = hoverPos;
+            hoverDwellStartMs = 0;   // reset — mouse is moving
+        }
+        else if (hoverDwellStartMs == 0)
+        {
+            hoverDwellStartMs = juce::Time::getMillisecondCounter();
+        }
+    }
+    else
+    {
+        lastHoverPos = {};
+        hoverDwellStartMs = 0;
+    }
+
     if (apvtsRef != nullptr)
     {
         if (auto* p = apvtsRef->getParameter ("filter_solo"))
@@ -1169,27 +1189,20 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
                                       (hoverPos.x - plot.getX()) / plot.getWidth());
     const float freq = xToFreq (normX);
 
+    // Dwell check: only show the detailed DAW/Ref values once the mouse
+    // has stayed in the same position for a while. Until then, show
+    // just the frequency so the tooltip doesn't block the view.
+    const bool showDetails = (hoverDwellStartMs != 0
+                              && juce::Time::getMillisecondCounter() - hoverDwellStartMs
+                                     >= hoverDwellMs);
+
     const double binHz = sr / (double) SpectrumAnalyzer::fftSize;
     const int numBins = daw->getNumBins();
     int bin = juce::roundToInt (freq / (float) binHz);
     bin = juce::jlimit (1, numBins - 1, bin);
 
-    const float dawDb = daw->getPeakDb (bin);
-    const float refDb = ref->getPeakDb (bin);
-
     const float octavesFrom1k = std::log2 (freq / 1000.0f);
     const float tilt = tiltSlopeDbPerOctave * octavesFrom1k;
-
-    const bool dawSilent = dawDb <= floorSnapDb;
-    const bool refSilent = refDb <= floorSnapDb;
-
-    const juce::String dawText = dawSilent
-        ? juce::String ("-")
-        : juce::String (dawDb + tilt, 1) + " dB";
-
-    const juce::String refText = refSilent
-        ? juce::String ("-")
-        : juce::String (refDb + tilt, 1) + " dB";
 
     const juce::String freqText = formatFrequency (freq);
 
@@ -1198,19 +1211,38 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
     constexpr int lineHeight = 14;
     constexpr int dotRadius  = 3;
 
-    constexpr int numLines = 3;
-
     auto estimateWidth = [] (const juce::String& s) -> int
     {
         return juce::jmax (60, s.length() * 6 + 4);
     };
 
-    const int line1Width = estimateWidth (freqText);
-    const int line2Width = estimateWidth ("DAW  " + dawText);
-    const int line3Width = estimateWidth ("Ref  " + refText);
+    const int numLines = showDetails ? 3 : 1;
 
-    const int contentWidth = juce::jmax (line1Width,
-                                         juce::jmax (line2Width, line3Width));
+    juce::String dawText;
+    juce::String refText;
+
+    const int line1Width = estimateWidth (freqText);
+    int contentWidth = line1Width;
+
+    if (showDetails)
+    {
+        const float dawDb = daw->getPeakDb (bin);
+        const float refDb = ref->getPeakDb (bin);
+
+        const bool dawSilent = dawDb <= floorSnapDb;
+        const bool refSilent = refDb <= floorSnapDb;
+
+        dawText = dawSilent ? juce::String ("-")
+                            : juce::String (dawDb + tilt, 1) + " dB";
+        refText = refSilent ? juce::String ("-")
+                            : juce::String (refDb + tilt, 1) + " dB";
+
+        const int line2Width = estimateWidth ("DAW  " + dawText);
+        const int line3Width = estimateWidth ("Ref  " + refText);
+
+        contentWidth = juce::jmax (line1Width,
+                                   juce::jmax (line2Width, line3Width));
+    }
 
     const int boxWidth  = contentWidth + paddingX * 2;
     const int boxHeight = lineHeight * numLines + paddingY * 2;
@@ -1235,7 +1267,7 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
 
     auto contentArea = box.reduced (paddingX, paddingY);
 
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
+    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
 
     {
         auto line1 = contentArea.removeFromTop (lineHeight);
@@ -1246,41 +1278,44 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
                     false);
     }
 
-    auto drawValueLine = [&] (juce::Rectangle<int> line,
-                              juce::Colour dotColour,
-                              const juce::String& label,
-                              const juce::String& valueText)
+    if (showDetails)
     {
-        auto dotArea = line.removeFromLeft (dotRadius * 2 + 4);
-        g.setColour (dotColour);
-        g.fillEllipse ((float) dotArea.getX() + 2.0f,
-                       (float) line.getCentreY() - (float) dotRadius,
-                       (float) dotRadius * 2.0f,
-                       (float) dotRadius * 2.0f);
+        auto drawValueLine = [&] (juce::Rectangle<int> line,
+                                  juce::Colour dotColour,
+                                  const juce::String& label,
+                                  const juce::String& valueText)
+        {
+            auto dotArea = line.removeFromLeft (dotRadius * 2 + 4);
+            g.setColour (dotColour);
+            g.fillEllipse ((float) dotArea.getX() + 2.0f,
+                           (float) line.getCentreY() - (float) dotRadius,
+                           (float) dotRadius * 2.0f,
+                           (float) dotRadius * 2.0f);
 
-        line.removeFromLeft (4);
+            line.removeFromLeft (4);
 
-        g.setColour (Theme::textSecondary);
-        g.drawText (label,
-                    line.removeFromLeft (32),
-                    juce::Justification::centredLeft,
-                    false);
+            g.setColour (Theme::textSecondary);
+            g.drawText (label,
+                        line.removeFromLeft (32),
+                        juce::Justification::centredLeft,
+                        false);
 
-        g.setColour (Theme::textPrimary);
-        g.drawText (valueText,
-                    line,
-                    juce::Justification::centredLeft,
-                    false);
-    };
+            g.setColour (Theme::textPrimary);
+            g.drawText (valueText,
+                        line,
+                        juce::Justification::centredLeft,
+                        false);
+        };
 
-    {
-        auto line2 = contentArea.removeFromTop (lineHeight);
-        drawValueLine (line2, Theme::dawTrace, "DAW", dawText);
-    }
+        {
+            auto line2 = contentArea.removeFromTop (lineHeight);
+            drawValueLine (line2, Theme::dawTrace, "DAW", dawText);
+        }
 
-    {
-        auto line3 = contentArea.removeFromTop (lineHeight);
-        drawValueLine (line3, Theme::refTrace, "Ref", refText);
+        {
+            auto line3 = contentArea.removeFromTop (lineHeight);
+            drawValueLine (line3, Theme::refTrace, "Ref", refText);
+        }
     }
 }
 

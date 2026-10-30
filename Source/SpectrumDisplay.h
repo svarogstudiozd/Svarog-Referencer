@@ -101,6 +101,11 @@ private:
     static constexpr float grabRadiusPx = 8.0f;
     static constexpr float minRatio = 2.0f;
 
+    juce::Point<float> lastHoverPos;
+    juce::uint32 hoverDwellStartMs = 0;   // when the mouse settled here
+    static constexpr juce::uint32 hoverDwellMs = 1000;
+
+
     // Display-mode buttons.
     juce::TextButton deltaButton;
     juce::TextButton expandButton;
