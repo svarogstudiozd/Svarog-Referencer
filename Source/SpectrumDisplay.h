@@ -3,6 +3,26 @@
 #include "SpectrumAnalyzer.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <memory>
+
+
+// ---- Free-standing class, defined BEFORE SpectrumDisplay ----
+class ExpandIconButton : public juce::TextButton
+{
+public:
+    ExpandIconButton()
+        : juce::TextButton ("Expand")
+    {
+        setClickingTogglesState (true);
+    }
+
+    void paintButton (juce::Graphics& g,
+                      bool shouldDrawButtonAsHighlighted,
+                      bool /*shouldDrawButtonAsDown*/) override;
+
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ExpandIconButton)
+};
 
 class SpectrumDisplay : public juce::Component,
                         private juce::Timer
@@ -108,7 +128,7 @@ private:
 
     // Display-mode buttons.
     juce::TextButton deltaButton;
-    juce::TextButton expandButton;
+    std::unique_ptr<ExpandIconButton> expandButton;
 
     bool deltaMode = false;
     bool expanded  = false;

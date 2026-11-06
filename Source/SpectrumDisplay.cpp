@@ -52,6 +52,55 @@ namespace
     constexpr int legendGapToButton      = 4;
 }
 
+void ExpandIconButton::paintButton (juce::Graphics& g,
+                                    bool shouldDrawButtonAsHighlighted,
+                                    bool shouldDrawButtonAsDown)
+{
+    // Let the LookAndFeel draw the exact same background the delta
+    // button uses (same gradient, top highlight, inner border).
+    getLookAndFeel().drawButtonBackground (
+        g, *this, findColour (juce::TextButton::buttonColourId),
+        shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+
+    // Draw the icon, centred in the button.
+    const auto bounds = getLocalBounds().toFloat().reduced (0.5f);
+    const bool isOn = getToggleState();
+
+    const float buttonSize = juce::jmin (bounds.getWidth(), bounds.getHeight());
+const float pad    = isOn ? buttonSize * 0.36f
+                              : buttonSize * 0.28f;
+    const float armLen = isOn ? buttonSize * 0.14f
+                              : buttonSize * 0.14f;
+    const float strokeW    = 1.8f;
+
+    const auto inner = bounds.withSizeKeepingCentre (buttonSize - pad * 2.0f,
+                                                    buttonSize - pad * 2.0f);
+
+    const float leftX   = inner.getX();
+    const float rightX  = inner.getRight();
+    const float topY    = inner.getY();
+    const float bottomY = inner.getBottom();
+
+    const float dir = isOn ? -1.0f : 1.0f;
+
+    const auto iconColour = isOn ? juce::Colours::white
+                                 : Theme::textPrimary;
+
+    g.setColour (iconColour);
+
+    g.drawLine (leftX, topY, leftX + armLen * dir, topY, strokeW);
+    g.drawLine (leftX, topY, leftX, topY + armLen * dir, strokeW);
+
+    g.drawLine (rightX, topY, rightX - armLen * dir, topY, strokeW);
+    g.drawLine (rightX, topY, rightX, topY + armLen * dir, strokeW);
+
+    g.drawLine (leftX, bottomY, leftX + armLen * dir, bottomY, strokeW);
+    g.drawLine (leftX, bottomY, leftX, bottomY - armLen * dir, strokeW);
+
+    g.drawLine (rightX, bottomY, rightX - armLen * dir, bottomY, strokeW);
+    g.drawLine (rightX, bottomY, rightX, bottomY - armLen * dir, strokeW);
+}
+
 SpectrumDisplay::SpectrumDisplay()
 {
     setInterceptsMouseClicks (true, false);
@@ -75,29 +124,28 @@ SpectrumDisplay::SpectrumDisplay()
 
     addAndMakeVisible (deltaButton);
 
-    expandButton.setButtonText (juce::CharPointer_UTF8 ("\xe2\x97\xb0"));
-    expandButton.setClickingTogglesState (true);
-    expandButton.setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
-    expandButton.setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
-    expandButton.setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
-    expandButton.setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
-    expandButton.getProperties().set ("fontSize", 16.0f);
-  
-    expandButton.getProperties().set ("cornerRadius", 4.0f);
-    expandButton.setTooltip ("Expand the spectrum to fill the plugin window.");
+expandButton = std::make_unique<ExpandIconButton>();
+expandButton->setTooltip ("Expand the spectrum to fill the plugin window.");
 
-    expandButton.onClick = [this]
+// Match the delta button exactly.
+expandButton->setColour (juce::TextButton::buttonColourId,   Theme::surfaceHover);
+expandButton->setColour (juce::TextButton::buttonOnColourId, Theme::accentRed);
+expandButton->setColour (juce::TextButton::textColourOffId,  Theme::textPrimary);
+expandButton->setColour (juce::TextButton::textColourOnId,   juce::Colours::white);
+expandButton->getProperties().set ("fontSize", 14.0f);
+expandButton->getProperties().set ("cornerRadius", 4.0f);
+
+expandButton->onClick = [this]
 {
-    expanded = expandButton.getToggleState();
+    expanded = expandButton->getToggleState();
 
-    // Swap between filled-corner glyph (off) and hollow square (on).
-    expandButton.setButtonText (juce::CharPointer_UTF8 (expanded ? "\xe2\x96\xa1"   // U+25A1 □
-                                                                : "\xe2\x97\xb0")); // U+25F0 ◰
     if (onExpandToggled)
         onExpandToggled (expanded);
+
+    expandButton->repaint();
 };
 
-    addAndMakeVisible (expandButton);
+addAndMakeVisible (*expandButton);
 
     startTimerHz (60);
 }
@@ -123,8 +171,8 @@ void SpectrumDisplay::setExpanded (bool shouldBeExpanded)
 {
     expanded = shouldBeExpanded;
 
-    if (expandButton.getToggleState() != expanded)
-        expandButton.setToggleState (expanded, juce::dontSendNotification);
+    if (expandButton->getToggleState() != expanded)
+        expandButton->setToggleState (expanded, juce::dontSendNotification);
 }
 
 void SpectrumDisplay::timerCallback()
@@ -402,7 +450,7 @@ void SpectrumDisplay::mouseMove (const juce::MouseEvent& e)
         const bool insidePlot   = plot.contains (e.position);
         const bool insideLegend = getLegendBounds().contains (e.getPosition());
         const bool insideDelta  = deltaButton.getBounds().contains (e.getPosition());
-        const bool insideExpand = expandButton.getBounds().contains (e.getPosition());
+        const bool insideExpand = expandButton->getBounds().contains (e.getPosition());
 
         const bool newHover = insidePlot && ! insideLegend
                             && ! insideDelta && ! insideExpand;
@@ -1327,10 +1375,10 @@ void SpectrumDisplay::resized()
 
     const int rightEdge = bounds.getRight() - smallButtonRightMargin;
 
-    expandButton.setBounds (rightEdge - smallButtonWidth,
-                            bounds.getY() + smallButtonTopMargin,
-                            smallButtonWidth,
-                            smallButtonHeight);
+expandButton->setBounds (rightEdge - smallButtonWidth,
+                         bounds.getY() + smallButtonTopMargin,
+                         smallButtonWidth,
+                         smallButtonHeight);
 
     deltaButton.setBounds (rightEdge - smallButtonWidth * 2 - smallButtonGap,
                            bounds.getY() + smallButtonTopMargin,
