@@ -1254,23 +1254,25 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
 
     const juce::String freqText = formatFrequency (freq);
 
-    constexpr int paddingX   = 8;
+    constexpr int paddingX   = 6;
     constexpr int paddingY   = 6;
     constexpr int lineHeight = 14;
     constexpr int dotRadius  = 3;
 
-    auto estimateWidth = [] (const juce::String& s) -> int
-    {
-        return juce::jmax (60, s.length() * 6 + 4);
-    };
+    
 
-    const int numLines = showDetails ? 3 : 1;
+       const int numLines = showDetails ? 3 : 1;
 
     juce::String dawText;
     juce::String refText;
 
-    const int line1Width = estimateWidth (freqText);
-    int contentWidth = line1Width;
+    // Fixed widths — one for the frequency-only tooltip, one for the
+    // full tooltip with peak values. Both are sized to comfortably fit
+    // the widest content (e.g. "20000.0 Hz" and "DAW -60.0 dB").
+    constexpr int freqOnlyContentWidth = 50;
+    constexpr int detailsContentWidth  = 90;
+
+    int contentWidth = freqOnlyContentWidth;
 
     if (showDetails)
     {
@@ -1285,11 +1287,7 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
         refText = refSilent ? juce::String ("-")
                             : juce::String (refDb + tilt, 1) + " dB";
 
-        const int line2Width = estimateWidth ("DAW  " + dawText);
-        const int line3Width = estimateWidth ("Ref  " + refText);
-
-        contentWidth = juce::jmax (line1Width,
-                                   juce::jmax (line2Width, line3Width));
+        contentWidth = detailsContentWidth;
     }
 
     const int boxWidth  = contentWidth + paddingX * 2;

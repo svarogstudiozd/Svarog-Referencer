@@ -244,12 +244,12 @@ void LufsMeterComponent::paint (juce::Graphics& g)
             .createStrokedPath (outline, borderPath);
 
         juce::ColourGradient borderGrad (
-            juce::Colours::black.withAlpha (0.9f),
+            juce::Colours::white.withAlpha (0.1f),
             bounds.getX(), bounds.getY(),
             juce::Colours::white.withAlpha (0.2f),
             bounds.getX(), bounds.getBottom(),
             false);
-        borderGrad.addColour (0.4, juce::Colours::grey.withAlpha (0.30f));
+        borderGrad.addColour (0.5, juce::Colours::grey.withAlpha (0.30f));
 
         g.setGradientFill (borderGrad);
         g.fillPath (outline);
@@ -338,7 +338,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     // Top numeric value
     {
         g.setColour (isSilent ? Theme::textFaint : Theme::greyLight);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
 
         const juce::String txt = isSilent
             ? juce::String ("--")
