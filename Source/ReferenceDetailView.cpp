@@ -23,16 +23,6 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
     fileLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (fileLabel);
 
-    // Replace button: neutral panel colour, matching the other
-    // non-engaged buttons in the row.
-    replaceButton.onClick = [this] { openFileChooser(); };
-    replaceButton.setColour (juce::TextButton::buttonColourId, Theme::panel);
-    replaceButton.setColour (juce::TextButton::textColourOffId, Theme::textPrimary);
-    replaceButton.setColour (juce::TextButton::textColourOnId, Theme::greyLight);
-    replaceButton.setInterceptsMouseClicks (true, true);
-    addAndMakeVisible (replaceButton);
-    
-    replaceButton.getProperties().set ("fontSize", 13.0f);
 
     // Replace button: neutral panel colour, matching the other
     // non-engaged buttons in the row.

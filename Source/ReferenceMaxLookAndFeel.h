@@ -1002,7 +1002,6 @@ void drawRecessedControl (juce::Graphics& g,
         // the fill using the same geometry.
         slider.getProperties().set ("wellX", bounds.getX());
         slider.getProperties().set ("wellY", bounds.getY());
-        slider.getProperties().set ("wellW", bounds.getWidth());
         slider.getProperties().set ("wellH", bounds.getHeight());
         slider.getProperties().set ("fillRightX", fillRight);
     }
