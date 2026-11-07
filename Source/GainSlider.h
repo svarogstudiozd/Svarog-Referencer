@@ -42,20 +42,15 @@ public:
     }
 
 private:
+    private:
     void timerCallback() override
     {
-        if (std::abs (current - target) < 0.001f)
-        {
-        if (std::abs(current - target) > 0.0001f)
-            {
-                current = target;
-                getProperties().set ("hoverAlpha", current);
-                repaint();
-            }
+        // If we're already at the target, do nothing — the animation
+        // is settled and the timer will idle until the target changes.
+        if (std::abs (current - target) < 0.0001f)
             return;
-        }
 
-        // ~150 ms to travel the full range at 60 Hz: about 0.11 per tick.
+        // Step toward the target.
         constexpr float step = 1.0f / (0.250f * 60.0f);
 
         if (current < target)
@@ -63,10 +58,14 @@ private:
         else
             current = juce::jmax (target, current - step);
 
+        // When we're within one step of the target, snap exactly so
+        // there's no residual alpha hanging below 0.001.
+        if (std::abs (current - target) < step)
+            current = target;
+
         getProperties().set ("hoverAlpha", current);
         repaint();
     }
-
     float current = 0.0f;
     float target  = 0.0f;
 

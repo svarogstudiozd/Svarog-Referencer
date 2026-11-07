@@ -256,16 +256,30 @@ void LevelMeterComponent::paint (juce::Graphics& g)
 
         const float dbTicks[] = { 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 
-        for (float db : dbTicks)
+                for (float db : dbTicks)
         {
             const float norm = normFromDb (db, minDb, maxDb);
             const float y = barArea.getBottom() - norm * barArea.getHeight();
 
+            constexpr int labelHeight = 12;
+            int labelY = (int) y - labelHeight / 2;
+
+            // Clamp so the top and bottom labels don't sit flush
+            // against the meter edges.
+            const int areaTop    = (int) barArea.getY() + 1;
+            const int areaBottom = (int) barArea.getBottom() - 1;
+
+            if (labelY < areaTop)
+                labelY = areaTop;
+
+            if (labelY + labelHeight > areaBottom)
+                labelY = areaBottom - labelHeight;
+
             g.drawFittedText (juce::String ((int) db),
                               juce::Rectangle<int> ((int) scaleArea.getX(),
-                                                    (int) y - 6,
+                                                    labelY,
                                                     (int) scaleArea.getWidth(),
-                                                    12),
+                                                    labelHeight),
                               juce::Justification::centredLeft,
                               1);
         }
@@ -335,7 +349,7 @@ void LevelMeterComponent::paint (juce::Graphics& g)
     // Bigger and brighter for readability at meter width.
     {
         g.setColour (Theme::textPrimary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (10.5f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.5f)));
 
         g.drawFittedText ("RMS",
                           labelStrip.toNearestInt(),

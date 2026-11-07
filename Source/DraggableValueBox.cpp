@@ -105,9 +105,33 @@ void DraggableValueBox::paint (juce::Graphics& g)
     else if (hovered)
         fill = fill.brighter (0.05f);
 
-    if (lf != nullptr)
+        if (lf != nullptr)
     {
         lf->drawRecessedControl (g, bounds, fill);
+
+        // Slightly dim the bottom highlight that drawRecessedControl
+        // just drew. Draws a soft dark gradient over the bottom 3px,
+        // which tones the white lip down without removing it.
+        {
+            juce::Graphics::ScopedSaveState save (g);
+
+            juce::Path clip;
+            clip.addRoundedRectangle (bounds, Radius::control);
+            g.reduceClipRegion (clip, {});
+
+            juce::ColourGradient dim (
+                juce::Colours::black.withAlpha (0.50f),
+                bounds.getX(), bounds.getBottom(),
+                juce::Colours::black.withAlpha (0.0f),
+                bounds.getX(), bounds.getBottom() - 3.0f,
+                false);
+            g.setGradientFill (dim);
+            g.fillRect (juce::Rectangle<float> (
+                bounds.getX(),
+                bounds.getBottom() - 3.0f,
+                bounds.getWidth(),
+                3.0f));
+        }
     }
     else
     {
@@ -133,6 +157,8 @@ void DraggableValueBox::paint (juce::Graphics& g)
             g.fillRect (bounds.withHeight (5.0f));
         }
     }
+
+    
 
     // Text: brighter when enabled and hovered, faint when disabled.
     juce::Colour textColour;

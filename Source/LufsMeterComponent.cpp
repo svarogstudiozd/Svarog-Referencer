@@ -25,7 +25,7 @@ LufsMeterComponent::LufsMeterComponent()
 
     // Small text so the six-character label fits comfortably inside the
     // narrow meter width. Read by ReferenceMaxLookAndFeel::drawButtonText.
-    modeButton.getProperties().set ("fontSize", 10.0f);
+    modeButton.getProperties().set ("fontSize", 11.5f);
     modeButton.getProperties().set ("cornerRadius", 4.0f);
 
     modeButton.setButtonText (currentLabel());
@@ -320,16 +320,30 @@ void LufsMeterComponent::paint (juce::Graphics& g)
 
         const float ticks[] = { 0.0f, -9.0f, -14.0f, -24.0f, -40.0f };
 
-        for (float t : ticks)
+                for (float t : ticks)
         {
             const float n = normFromLufs (t, minLufs, maxLufs);
             const float y = bar.getBottom() - n * bar.getHeight();
 
+            constexpr int labelHeight = 12;
+            int labelY = (int) y - labelHeight / 2;
+
+            // Clamp so the top and bottom labels don't sit flush
+            // against the meter edges.
+            const int barTop    = (int) bar.getY() + 1;
+            const int barBottom = (int) bar.getBottom() - 1;
+
+            if (labelY < barTop)
+                labelY = barTop;
+
+            if (labelY + labelHeight > barBottom)
+                labelY = barBottom - labelHeight;
+
             g.drawFittedText (juce::String ((int) t),
                               juce::Rectangle<int> ((int) scaleArea.getX(),
-                                                    (int) y - 6,
+                                                    labelY,
                                                     (int) scaleArea.getWidth(),
-                                                    12),
+                                                    labelHeight),
                               juce::Justification::centredLeft,
                               1);
         }

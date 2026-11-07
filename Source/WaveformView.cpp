@@ -64,7 +64,7 @@ void WaveformView::paint (juce::Graphics& g)
             .createStrokedPath (outline, borderPath);
 
         juce::ColourGradient borderGrad (
-            juce::Colours::black.withAlpha (0.9f),
+            juce::Colours::white.withAlpha (0.15f),
             bounds.getX(), bounds.getY(),
             juce::Colours::white.withAlpha (0.5f),
             bounds.getX(), bounds.getBottom(),

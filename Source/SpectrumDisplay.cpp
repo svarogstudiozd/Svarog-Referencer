@@ -541,7 +541,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (10.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f)));
 
          const float dbTicks[] = { 0.0f, -12.0f, -24.0f, -36.0f, -48.0f,
                                   -60.0f, -72.0f, -90.0f };
@@ -575,7 +575,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (10.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f)));
 
         const std::pair<float, const char*> freqTicks[] = {
             { 20.0f,    "20" },

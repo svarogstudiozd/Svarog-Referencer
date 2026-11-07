@@ -959,7 +959,7 @@ void ReferenceDetailView::resized()
     gainValueLabel.setBounds (rx, rowY, gainValueW, rowH);
 
     rx -= normalGap + gainSliderW;
-    gainSlider.setBounds (rx, rowY, gainSliderW, rowH);
+    gainSlider.setBounds (rx - 4, rowY - 4, gainSliderW + 8, rowH + 6);
 
     rx -= normalGap + gainLabelW + gainLabelPad;
     gainLabel.setBounds (rx + gainLabelPad, rowY, gainLabelW, rowH);

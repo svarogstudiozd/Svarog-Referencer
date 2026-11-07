@@ -167,7 +167,7 @@ void SessionStrip::paint (juce::Graphics& g)
         // Continuous gradient: dark grey at the top, mid grey at the
         // middle, white at the bottom. No transparent stops.
         juce::ColourGradient borderGrad (
-            juce::Colours::black.withAlpha (0.8f),
+            juce::Colours::white.withAlpha (0.07f),
             bounds.getX(), bounds.getY(),
             juce::Colours::white.withAlpha (0.3f),
             bounds.getX(), bounds.getBottom(),

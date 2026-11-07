@@ -838,7 +838,7 @@ void drawRecessedControl (juce::Graphics& g,
 
         const auto bounds = juce::Rectangle<float> ((float) x, (float) y,
                                                     (float) width, (float) height)
-                                .reduced (0.5f, 3.0f);
+                                .reduced (0.5f, 6.0f);
 
                 const float cornerRadius = Radius::control;
 
@@ -926,10 +926,12 @@ void drawRecessedControl (juce::Graphics& g,
             const float hoverAlpha = juce::jlimit (0.0f, 1.0f,
                 (float) slider.getProperties().getWithDefault ("hoverAlpha", 0.0f));
 
-            // Idle: darker red. Hover: brighter red, like an engaged
-            // button whose glow intensifies.
+            
+            // Idle: Theme::accentRed (the base red the engaged buttons
+            // use on their faces). Hover: the brighter red used at the
+            // centre of the engaged-button radial glow.
             const auto idleRed    = juce::Colour (0xff8a3535);   // accentRed
-            const auto hoverRed   = juce::Colour (0xffa03838);   // brighter red
+            const auto hoverRed   = juce::Colour (0xff7a2d2d);    // engaged glow centre
 
             const auto baseRed = idleRed.interpolatedWith (hoverRed, hoverAlpha);
 
@@ -972,52 +974,28 @@ void drawRecessedControl (juce::Graphics& g,
                         1.0f);
         }
 
-         // --- 4. Border ---------------------------------------------------
+                 // --- 4. Unified gradient border ----------------------------------
         {
-            // Dark top half — drawn all around.
-            g.setColour (juce::Colours::black.withAlpha (0.65f));
-            g.drawRoundedRectangle (bounds.reduced (0.5f), cornerRadius, 1.0f);
+            juce::Path borderPath;
+            borderPath.addRoundedRectangle (bounds.reduced (0.5f),
+                                            juce::jmax (0.0f, cornerRadius - 0.5f));
 
-            // Bottom highlight — curved, following the rounded bottom
-            // edge, faded at both ends. Drawn after the fill so it
-            // appears on both the red fill and the empty well, making
-            // the fill read as sitting inside the well.
-            {
-                juce::Graphics::ScopedSaveState save (g);
+            juce::Path outline;
+            juce::PathStrokeType (1.0f,
+                                  juce::PathStrokeType::curved,
+                                  juce::PathStrokeType::butt)
+                .createStrokedPath (outline, borderPath);
 
-                juce::Rectangle<float> bottomBand (
-                    bounds.getX(),
-                    bounds.getBottom() - cornerRadius - 0.0f,
-                    bounds.getWidth(),
-                    cornerRadius + 0.0f);
+            juce::ColourGradient borderGrad (
+                juce::Colours::black.withAlpha (0.8f),
+                bounds.getX(), bounds.getY(),
+                juce::Colours::white.withAlpha (0.3f),
+                bounds.getX(), bounds.getBottom(),
+                false);
+            borderGrad.addColour (0.7, juce::Colours::grey.withAlpha (0.25f));
 
-                juce::Path band;
-                band.addRectangle (bottomBand);
-                g.reduceClipRegion (band, {});
-
-                juce::Path inner;
-                inner.addRoundedRectangle (bounds.reduced (1.0f),
-                                           juce::jmax (0.0f, cornerRadius - 1.0f));
-
-                juce::Path outline;
-                juce::PathStrokeType (1.0f,
-                                      juce::PathStrokeType::curved,
-                                      juce::PathStrokeType::butt)
-                    .createStrokedPath (outline, inner);
-
-                juce::ColourGradient fade (
-                    juce::Colours::white.withAlpha (0.0f),
-                    bounds.getX(), 0.0f,
-                    juce::Colours::white.withAlpha (0.0f),
-                    bounds.getRight(), 0.0f,
-                    false);
-                fade.addColour (0.03, juce::Colours::white.withAlpha (0.40f));
-                fade.addColour (0.50, juce::Colours::white.withAlpha (0.50f));
-                fade.addColour (0.97, juce::Colours::white.withAlpha (0.40f));
-
-                g.setGradientFill (fade);
-                g.fillPath (outline);
-            }
+            g.setGradientFill (borderGrad);
+            g.fillPath (outline);
         }
 
                 // Publish the well's bounds so the parent can draw a glow around
