@@ -1,5 +1,5 @@
 #pragma once
-
+#include <atomic>
 #include <juce_audio_utils/juce_audio_utils.h>
 
 class ReferenceSlot : public juce::ChangeBroadcaster
@@ -107,6 +107,11 @@ private:
     std::atomic<bool> pausedByTransport { false };
     std::atomic<double> pausedPosition { 0.0 };
     std::atomic<bool> transportRunning { false };
+
+    juce::AudioBuffer<float> lastBlockBuffer;
+    bool                     hasLastBlock = false;
+    std::atomic<bool>        pendingPauseFade { false };
+    std::atomic<float>       pauseFadeLevel { 1.0f };
 
     std::atomic<bool> loopEnabled { false };
     std::atomic<float> loopStartNormalized { 0.0f };

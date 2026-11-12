@@ -126,6 +126,14 @@ void ReferenceSlot::prepare (double sampleRate,
     transport.prepareToPlay (samplesPerBlock, sampleRate);
     transport.start();
     transportRunning.store (true);
+
+    lastBlockBuffer.setSize (juce::jmax (2, numChannels),
+                             juce::jmax (1, samplesPerBlock),
+                             false, true, true);
+    lastBlockBuffer.clear();
+    hasLastBlock = false;
+    pendingPauseFade = false;
+    pauseFadeLevel = 1.0f;
 }
 
 void ReferenceSlot::releaseResources()
@@ -365,7 +373,9 @@ void ReferenceSlot::ensureTransportRunning()
 void ReferenceSlot::getNextAudioBlock (
     const juce::AudioSourceChannelInfo& info)
 {
-    if (! prepared || ! loaded.load() || readerSource == nullptr)
+    const int numSamples = info.numSamples;
+
+    if (! prepared || ! loaded.load() || readerSource == nullptr || numSamples <= 0)
     {
         info.clearActiveBufferRegion();
         return;
@@ -379,17 +389,62 @@ void ReferenceSlot::getNextAudioBlock (
         return;
     }
 
-    const auto numSamples = info.numSamples;
+    // ---------- Pending pause: replay last block, fade to zero ----------
+    if (pendingPauseFade.load())
+    {
+        const int outChans = info.buffer->getNumChannels();
+        const int srcChans = lastBlockBuffer.getNumChannels();
+        const int chans = juce::jmin (outChans, srcChans);
 
-    if (numSamples <= 0)
+        if (hasLastBlock && lastBlockBuffer.getNumSamples() >= numSamples)
+        {
+            for (int ch = 0; ch < chans; ++ch)
+                info.buffer->copyFrom (ch, info.startSample,
+                                       lastBlockBuffer, ch, 0, numSamples);
+
+            // Zero any extra channels we don't have source for.
+            for (int ch = chans; ch < outChans; ++ch)
+                info.buffer->clear (ch, info.startSample, numSamples);
+        }
+        else
+        {
+            info.clearActiveBufferRegion();
+        }
+
+        const float step = 1.0f / (0.005f * (float) currentSampleRate);
+        float env = pauseFadeLevel.load();
+
+        for (int s = 0; s < numSamples; ++s)
+        {
+            for (int ch = 0; ch < outChans; ++ch)
+                info.buffer->getWritePointer (ch)[info.startSample + s] *= env;
+
+            env = juce::jmax (0.0f, env - step);
+        }
+
+        pauseFadeLevel.store (env);
+
+        if (env <= 1.0e-6f)
+        {
+            pendingPauseFade.store (false);
+            pauseFadeLevel.store (1.0f);
+            shouldBePlaying.store (false);
+            pausedByTransport.store (true);
+            hasLastBlock = false;
+            lastBlockBuffer.clear();
+        }
+
         return;
+    }
 
+    // ---------- Guard: paused or stopped ----------
     const bool shouldPlay = shouldBePlaying.load();
     const bool isPaused = pausedByTransport.load();
 
     if (! shouldPlay || isPaused)
     {
         info.clearActiveBufferRegion();
+        hasLastBlock = false;
         return;
     }
 
@@ -400,15 +455,10 @@ void ReferenceSlot::getNextAudioBlock (
     {
         const double target = followTargetSeconds.load();
 
-        if (target < 0.0 || length <= 0.0)
+        if (target < 0.0 || length <= 0.0 || target >= length)
         {
             info.clearActiveBufferRegion();
-            return;
-        }
-
-        if (target >= length)
-        {
-            info.clearActiveBufferRegion();
+            hasLastBlock = false;
             return;
         }
 
@@ -423,82 +473,97 @@ void ReferenceSlot::getNextAudioBlock (
         ensureTransportRunning();
         transport.getNextAudioBlock (info);
         handleTransportEnd();
-        return;
     }
-
-    // ---------- Free-running mode ----------
-    if (! loopEnabled.load())
+    else if (! loopEnabled.load())
     {
+        // ---------- Free-running mode ----------
         ensureTransportRunning();
         transport.getNextAudioBlock (info);
         handleTransportEnd();
-        return;
     }
-
-    if (length <= 0.0)
+    else
     {
-        info.clearActiveBufferRegion();
-        return;
-    }
-
-    const auto loopStart = juce::jlimit (
-        0.0,
-        length,
-        (double) loopStartNormalized.load() * length);
-
-    const auto loopEnd = juce::jlimit (
-        loopStart,
-        length,
-        (double) loopEndNormalized.load() * length);
-
-    if (loopEnd <= loopStart + 0.000001)
-    {
-        ensureTransportRunning();
-        transport.getNextAudioBlock (info);
-        handleTransportEnd();
-        return;
-    }
-
-    ensureTransportRunning();
-
-    auto samplesRemaining = numSamples;
-    auto bufferOffset = 0;
-
-    while (samplesRemaining > 0)
-    {
-        auto currentPosition = transport.getCurrentPosition();
-
-        if (currentPosition < loopStart || currentPosition >= loopEnd)
+        // ---------- Loop mode ----------
+        if (length <= 0.0)
         {
-            transport.setPosition (loopStart);
-            currentPosition = loopStart;
+            info.clearActiveBufferRegion();
+            hasLastBlock = false;
+            return;
         }
 
-        const auto secondsUntilLoopEnd =
-            loopEnd - currentPosition;
+        const auto loopStart = juce::jlimit (
+            0.0,
+            length,
+            (double) loopStartNormalized.load() * length);
 
-        auto samplesUntilLoopEnd =
-            juce::jmax (
-                1,
-                (int) std::ceil (
-                    secondsUntilLoopEnd * currentSampleRate));
+        const auto loopEnd = juce::jlimit (
+            loopStart,
+            length,
+            (double) loopEndNormalized.load() * length);
 
-        const auto samplesToProcess =
-            juce::jmin (samplesRemaining,
-                        samplesUntilLoopEnd);
+        if (loopEnd <= loopStart + 0.000001)
+        {
+            ensureTransportRunning();
+            transport.getNextAudioBlock (info);
+            handleTransportEnd();
+        }
+        else
+        {
+            ensureTransportRunning();
 
-        juce::AudioSourceChannelInfo chunk (
-            info.buffer,
-            info.startSample + bufferOffset,
-            samplesToProcess);
+            auto samplesRemaining = numSamples;
+            auto bufferOffset = 0;
 
-        transport.getNextAudioBlock (chunk);
+            while (samplesRemaining > 0)
+            {
+                auto currentPosition = transport.getCurrentPosition();
 
-        bufferOffset += samplesToProcess;
-        samplesRemaining -= samplesToProcess;
+                if (currentPosition < loopStart || currentPosition >= loopEnd)
+                {
+                    transport.setPosition (loopStart);
+                    currentPosition = loopStart;
+                }
 
-        if (samplesToProcess >= samplesUntilLoopEnd)
-            transport.setPosition (loopStart);
+                const auto secondsUntilLoopEnd = loopEnd - currentPosition;
+                auto samplesUntilLoopEnd = juce::jmax (
+                    1,
+                    (int) std::ceil (secondsUntilLoopEnd * currentSampleRate));
+
+                const auto samplesToProcess = juce::jmin (samplesRemaining,
+                                                          samplesUntilLoopEnd);
+
+                juce::AudioSourceChannelInfo chunk (
+                    info.buffer,
+                    info.startSample + bufferOffset,
+                    samplesToProcess);
+
+                transport.getNextAudioBlock (chunk);
+
+                bufferOffset += samplesToProcess;
+                samplesRemaining -= samplesToProcess;
+
+                if (samplesToProcess >= samplesUntilLoopEnd)
+                    transport.setPosition (loopStart);
+            }
+        }
+    }
+
+    // ---------- Save this block for potential replay on pause ----------
+    if (lastBlockBuffer.getNumSamples() >= numSamples)
+    {
+        const int outChans = info.buffer->getNumChannels();
+        const int srcChans = lastBlockBuffer.getNumChannels();
+        const int chans = juce::jmin (outChans, srcChans);
+
+        for (int ch = 0; ch < chans; ++ch)
+            lastBlockBuffer.copyFrom (ch, 0,
+                                      *info.buffer, ch, info.startSample,
+                                      numSamples);
+
+        for (int ch = chans; ch < srcChans; ++ch)
+            lastBlockBuffer.clear (ch, 0, numSamples);
+
+        hasLastBlock = true;
     }
 }
 
@@ -671,6 +736,10 @@ void ReferenceSlot::transportPaused()
 void ReferenceSlot::transportResumed()
 {
     const double pos = pausedPosition.load();
+
+    pendingPauseFade.store (false);
+    pauseFadeLevel.store (1.0f);
+
     pausedByTransport.store (false);
     shouldBePlaying.store (true);
 
@@ -680,8 +749,6 @@ void ReferenceSlot::transportResumed()
         pausedPosition.store (0.0);
     }
 
-    // The transport may have stopped itself when the file ended.
-    // Ensure it is running again now that we are resuming playback.
     ensureTransportRunning();
 }
 

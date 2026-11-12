@@ -703,6 +703,13 @@ void ReferenceMaxAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 pendingTransportStop = true;
                 requestTransportFade (false);
+
+                // Pause every reference slot immediately, so no reference
+                // audio is emitted on the stop block. In AU/Standalone hosts
+                // the audio buffer still contains data on the stop block,
+                // and letting the reference play through it produces an
+                // audible fragment.
+                syncPlaybackState (false);
             }
             else
             {
