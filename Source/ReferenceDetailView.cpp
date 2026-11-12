@@ -684,6 +684,7 @@ void ReferenceDetailView::updateOffsetButtonState()
     }
 
     offsetButton.setButtonText ("Offset " + formatOffsetSeconds (offsetSec) + " s");
+    repaint(); 
 }
 
 void ReferenceDetailView::updateOffsetTooltip()

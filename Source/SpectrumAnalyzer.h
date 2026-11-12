@@ -54,8 +54,8 @@ public:
 private:
     double sampleRate = 48000.0;
 
-    juce::AbstractFifo fifo { fftSize };
-    juce::AudioBuffer<float> ringBuffer;
+    juce::AudioBuffer<float> ringBuffer;   // mono, fftSize samples, rolling
+    int writeIndex = 0;
 
     juce::dsp::FFT fft { fftOrder };
     juce::dsp::WindowingFunction<float> window { (size_t) fftSize,
