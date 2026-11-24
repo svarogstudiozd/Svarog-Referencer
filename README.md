@@ -1,4 +1,4 @@
-<img width="915" height="697" alt="Capture 5" src="https://github.com/user-attachments/assets/fb65442f-beaf-48f8-a33d-10eac5f83ff5" />
+<img src="assets/Screenshot 2.png" />
 
 ### Svarog Referencer +
 
