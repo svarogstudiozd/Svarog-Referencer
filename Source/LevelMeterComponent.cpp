@@ -89,117 +89,79 @@ void LevelMeterComponent::timerCallback()
 
 void LevelMeterComponent::paint (juce::Graphics& g)
 {
-        auto bounds = getLocalBounds().toFloat();
+    auto bounds = getLocalBounds().toFloat();
+    const float s = scale;   // shorthand
+    const float wellRadius = Radius::well * s;
 
-       const float wellRadius = Radius::well;
-
- // Dark fill.
     g.setColour (juce::Colour (0xff2a2a2a));
     g.fillRoundedRectangle (bounds, wellRadius);
 
-    // Inner shadow all around the edges, plus the bottom highlight.
-    // All drawn inside a clip so the shadow doesn't spill outside the
-    // rounded shape.
     {
         juce::Graphics::ScopedSaveState save (g);
-
         juce::Path clip;
         clip.addRoundedRectangle (bounds, wellRadius);
         g.reduceClipRegion (clip, {});
 
-        // --- Inner shadow, four soft bands ---
-        const float shadowDepth = 22.0f;
+        const float shadowDepth = 22.0f * s;
 
-        // Top band — dark at the top edge, fading downward.
+        // Top
         {
-            juce::ColourGradient grad (
-                juce::Colours::black.withAlpha (0.55f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getY() + shadowDepth,
-                false);
+            juce::ColourGradient grad (juce::Colours::black.withAlpha (0.55f),
+                                       bounds.getX(), bounds.getY(),
+                                       juce::Colours::black.withAlpha (0.0f),
+                                       bounds.getX(), bounds.getY() + shadowDepth, false);
             g.setGradientFill (grad);
-            g.fillRect (juce::Rectangle<float> (bounds.getX(),
-                                                bounds.getY(),
-                                                bounds.getWidth(),
-                                                shadowDepth));
+            g.fillRect (juce::Rectangle<float> (bounds.getX(), bounds.getY(), bounds.getWidth(), shadowDepth));
+        }
+        // Bottom
+        {
+            juce::ColourGradient grad (juce::Colours::black.withAlpha (0.35f),
+                                       bounds.getX(), bounds.getBottom(),
+                                       juce::Colours::black.withAlpha (0.0f),
+                                       bounds.getX(), bounds.getBottom() - shadowDepth, false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getX(), bounds.getBottom() - shadowDepth, bounds.getWidth(), shadowDepth));
+        }
+        // Left
+        {
+            juce::ColourGradient grad (juce::Colours::black.withAlpha (0.45f),
+                                       bounds.getX(), bounds.getY(),
+                                       juce::Colours::black.withAlpha (0.0f),
+                                       bounds.getX() + shadowDepth, bounds.getY(), false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getX(), bounds.getY(), shadowDepth, bounds.getHeight()));
+        }
+        // Right
+        {
+            juce::ColourGradient grad (juce::Colours::black.withAlpha (0.45f),
+                                       bounds.getRight(), bounds.getY(),
+                                       juce::Colours::black.withAlpha (0.0f),
+                                       bounds.getRight() - shadowDepth, bounds.getY(), false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<float> (bounds.getRight() - shadowDepth, bounds.getY(), shadowDepth, bounds.getHeight()));
         }
 
-        // Bottom band — dark at the bottom edge, fading upward.
-        {
-            juce::ColourGradient grad (
-                juce::Colours::black.withAlpha (0.35f),
-                bounds.getX(), bounds.getBottom(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX(), bounds.getBottom() - shadowDepth,
-                false);
-            g.setGradientFill (grad);
-            g.fillRect (juce::Rectangle<float> (bounds.getX(),
-                                                bounds.getBottom() - shadowDepth,
-                                                bounds.getWidth(),
-                                                shadowDepth));
-        }
-
-        // Left band.
-        {
-            juce::ColourGradient grad (
-                juce::Colours::black.withAlpha (0.45f),
-                bounds.getX(), bounds.getY(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getX() + shadowDepth, bounds.getY(),
-                false);
-            g.setGradientFill (grad);
-            g.fillRect (juce::Rectangle<float> (bounds.getX(),
-                                                bounds.getY(),
-                                                shadowDepth,
-                                                bounds.getHeight()));
-        }
-
-        // Right band.
-        {
-            juce::ColourGradient grad (
-                juce::Colours::black.withAlpha (0.45f),
-                bounds.getRight(), bounds.getY(),
-                juce::Colours::black.withAlpha (0.0f),
-                bounds.getRight() - shadowDepth, bounds.getY(),
-                false);
-            g.setGradientFill (grad);
-            g.fillRect (juce::Rectangle<float> (bounds.getRight() - shadowDepth,
-                                                bounds.getY(),
-                                                shadowDepth,
-                                                bounds.getHeight()));
-        }
-
-        // --- Bottom highlight (on top of the shadow) ---
+        // Bottom highlight
         {
             juce::Graphics::ScopedSaveState saveInner (g);
-
-            juce::Rectangle<float> bottomBand (
-                bounds.getX(),
-                bounds.getBottom() - wellRadius - 0.0f,
-                bounds.getWidth(),
-                wellRadius + 0.0f);
-
-            juce::Path band;
-            band.addRectangle (bottomBand);
+            juce::Rectangle<float> bottomBand (bounds.getX(),
+                                               bounds.getBottom() - wellRadius,
+                                               bounds.getWidth(),
+                                               wellRadius);
+            juce::Path band; band.addRectangle (bottomBand);
             g.reduceClipRegion (band, {});
 
             juce::Path inner;
-            inner.addRoundedRectangle (bounds.reduced (1.0f),
-                                       juce::jmax (0.0f, wellRadius - 1.0f));
+            inner.addRoundedRectangle (bounds.reduced (1.0f), juce::jmax (0.0f, wellRadius - 1.0f));
 
             juce::Path outline;
-            juce::PathStrokeType (1.0f,
-                                  juce::PathStrokeType::curved,
-                                  juce::PathStrokeType::butt)
+            juce::PathStrokeType (1.0f, juce::PathStrokeType::curved, juce::PathStrokeType::butt)
                 .createStrokedPath (outline, inner);
 
-            juce::ColourGradient fade (
-                juce::Colours::white.withAlpha (0.0f),
-                bounds.getX(), 0.0f,
-                juce::Colours::white.withAlpha (0.0f),
-                bounds.getRight(), 0.0f,
-                false);
+            juce::ColourGradient fade (juce::Colours::white.withAlpha (0.0f),
+                                       bounds.getX(), 0.0f,
+                                       juce::Colours::white.withAlpha (0.0f),
+                                       bounds.getRight(), 0.0f, false);
             fade.addColour (0.04, juce::Colours::white.withAlpha (0.25f));
             fade.addColour (0.50, juce::Colours::white.withAlpha (0.35f));
             fade.addColour (0.96, juce::Colours::white.withAlpha (0.25f));
@@ -207,116 +169,90 @@ void LevelMeterComponent::paint (juce::Graphics& g)
             g.setGradientFill (fade);
             g.fillPath (outline);
         }
-    // Unified gradient border (black at top -> white at bottom).
-    {
-        juce::Path borderPath;
-        borderPath.addRoundedRectangle (bounds.reduced (0.5f),
-                                        juce::jmax (0.0f, wellRadius - 0.5f));
 
-        juce::Path outline;
-        juce::PathStrokeType (1.0f,
-                              juce::PathStrokeType::curved,
-                              juce::PathStrokeType::butt)
-            .createStrokedPath (outline, borderPath);
+        // Border
+        {
+            juce::Path borderPath;
+            borderPath.addRoundedRectangle (bounds.reduced (0.5f), juce::jmax (0.0f, wellRadius - 0.5f));
 
-        juce::ColourGradient borderGrad (
-            juce::Colours::white.withAlpha (0.1f),
-            bounds.getX(), bounds.getY(),
-            juce::Colours::white.withAlpha (0.2f),
-            bounds.getX(), bounds.getBottom(),
-            false);
-        borderGrad.addColour (0.5, juce::Colours::grey.withAlpha (0.30f));
+            juce::Path outline;
+            juce::PathStrokeType (1.0f, juce::PathStrokeType::curved, juce::PathStrokeType::butt)
+                .createStrokedPath (outline, borderPath);
 
-        g.setGradientFill (borderGrad);
-        g.fillPath (outline);
+            juce::ColourGradient borderGrad (juce::Colours::white.withAlpha (0.1f),
+                                             bounds.getX(), bounds.getY(),
+                                             juce::Colours::white.withAlpha (0.2f),
+                                             bounds.getX(), bounds.getBottom(), false);
+            borderGrad.addColour (0.5, juce::Colours::grey.withAlpha (0.30f));
+
+            g.setGradientFill (borderGrad);
+            g.fillPath (outline);
+        }
     }
 
-    }
-
-    auto inner = bounds.reduced (4.0f, 4.0f);
-
-    auto valueStrip = inner.removeFromTop (20.0f);
-    inner.removeFromTop (4.0f);
-
-    auto labelStrip = inner.removeFromBottom (18.0f);
-    inner.removeFromBottom (4.0f);
+    // Now scale ALL the layout strips
+    auto inner = bounds.reduced (4.0f * s, 4.0f * s);
+    auto valueStrip = inner.removeFromTop (20.0f * s);
+    inner.removeFromTop (4.0f * s);
+    auto labelStrip = inner.removeFromBottom (18.0f * s);
+    inner.removeFromBottom (4.0f * s);
 
     auto barArea = inner;
-    auto scaleArea = barArea.removeFromRight (18.0f);
-    barArea.removeFromRight (2.0f);
+    auto scaleArea = barArea.removeFromRight (18.0f * s);
+    barArea.removeFromRight (2.0f * s);
 
     const int numChans = LevelMeterSource::numChannels;
-    const float barGap = 2.0f;
+    const float barGap = 2.0f * s;
     const float barWidth = (barArea.getWidth() - barGap * (float) (numChans - 1)) / (float) numChans;
 
     // dB scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f * s)));
 
         const float dbTicks[] = { 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
-
-                for (float db : dbTicks)
+        for (float db : dbTicks)
         {
             const float norm = normFromDb (db, minDb, maxDb);
             const float y = barArea.getBottom() - norm * barArea.getHeight();
 
-            constexpr int labelHeight = 12;
+            const int labelHeight = juce::roundToInt (12.0f * s);
             int labelY = (int) y - labelHeight / 2;
-
-            // Clamp so the top and bottom labels don't sit flush
-            // against the meter edges.
             const int areaTop    = (int) barArea.getY() + 1;
             const int areaBottom = (int) barArea.getBottom() - 1;
-
-            if (labelY < areaTop)
-                labelY = areaTop;
-
-            if (labelY + labelHeight > areaBottom)
-                labelY = areaBottom - labelHeight;
+            if (labelY < areaTop) labelY = areaTop;
+            if (labelY + labelHeight > areaBottom) labelY = areaBottom - labelHeight;
 
             g.drawFittedText (juce::String ((int) db),
-                              juce::Rectangle<int> ((int) scaleArea.getX(),
-                                                    labelY,
-                                                    (int) scaleArea.getWidth(),
-                                                    labelHeight),
-                              juce::Justification::centredLeft,
-                              1);
+                              juce::Rectangle<int> ((int) scaleArea.getX(), labelY,
+                                                    (int) scaleArea.getWidth(), labelHeight),
+                              juce::Justification::centredLeft, 1);
         }
     }
 
     for (int ch = 0; ch < numChans; ++ch)
     {
         const juce::Rectangle<float> bar (barArea.getX() + (float) ch * (barWidth + barGap),
-                                          barArea.getY(),
-                                          barWidth,
-                                          barArea.getHeight());
+                                          barArea.getY(), barWidth, barArea.getHeight());
 
         g.setColour (Theme::inset);
-        g.fillRoundedRectangle (bar, 2.0f);
+        g.fillRoundedRectangle (bar, 2.0f * s);
 
-                const float rmsNorm = normFromDb (smoothedRmsDb[ch], minDb, maxDb);
+        const float rmsNorm = normFromDb (smoothedRmsDb[ch], minDb, maxDb);
         if (rmsNorm > 0.0001f)
         {
             const float fillHeight = bar.getHeight() * rmsNorm;
-            auto fillArea = bar.withHeight (fillHeight)
-                               .withY (bar.getBottom() - fillHeight);
+            auto fillArea = bar.withHeight (fillHeight).withY (bar.getBottom() - fillHeight);
 
-            // Simple vertical gradient: dark red at the bottom, light
-            // red at the top.
-                        juce::ColourGradient grad (
-                juce::Colour (0xff808080 ),   // light grey at bottom
-                bar.getX(), fillArea.getBottom(),
-                juce::Colour (0xffe0e0e0),   // white at top
-                bar.getX(), fillArea.getY(),
-                false);
-
+            juce::ColourGradient grad (juce::Colour (0xff808080),
+                                       bar.getX(), fillArea.getBottom(),
+                                       juce::Colour (0xffe0e0e0),
+                                       bar.getX(), fillArea.getY(), false);
             g.setGradientFill (grad);
-            g.fillRoundedRectangle (fillArea, 2.0f);
+            g.fillRoundedRectangle (fillArea, 2.0f * s);
 
-            // Thin bright line at the top of the fill.
             g.setColour (juce::Colour (0xfffff0f0));
-            g.fillRect (bar.getX(), fillArea.getY(), bar.getWidth(), 1.5f);
+            g.fillRect (bar.getX(), fillArea.getY(), bar.getWidth(), 1.5f * s);
         }
 
         const float peakNorm = normFromDb (peakHoldDb[ch], minDb, maxDb);
@@ -324,38 +260,24 @@ void LevelMeterComponent::paint (juce::Graphics& g)
         {
             const float y = barArea.getY() + (1.0f - peakNorm) * barArea.getHeight();
             g.setColour (Theme::greyLight);
-            g.fillRect (bar.getX(), y - 0.5f, bar.getWidth(), 1.5f);
+            g.fillRect (bar.getX(), y - 0.5f * s, bar.getWidth(), 1.5f * s);
         }
     }
 
     // Top numeric value
     {
         const bool isSilent = heldPeakDb <= minDb + 0.5f;
-
         g.setColour (isSilent ? Theme::textFaint : Theme::greyLight);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f * s)));
 
-        const juce::String txt = isSilent
-            ? juce::String ("--")
-            : juce::String (heldPeakDb, 1);
-
-        g.drawFittedText (txt,
-                          valueStrip.toNearestInt(),
-                          juce::Justification::centred,
-                          1);
+        const juce::String txt = isSilent ? juce::String ("--") : juce::String (heldPeakDb, 1);
+        g.drawFittedText (txt, valueStrip.toNearestInt(), juce::Justification::centred, 1);
     }
 
-    // Bottom label - the bar shows RMS with peak hold shown as a line.
-    // Bigger and brighter for readability at meter width.
+    // Bottom label
     {
         g.setColour (Theme::textPrimary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.5f)));
-
-        g.drawFittedText ("RMS",
-                          labelStrip.toNearestInt(),
-                          juce::Justification::centred,
-                          1);
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.5f * s)));
+        g.drawFittedText ("RMS", labelStrip.toNearestInt(), juce::Justification::centred, 1);
     }
-
-  
 }

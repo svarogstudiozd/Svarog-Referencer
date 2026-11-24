@@ -196,7 +196,7 @@ public:
         // Labels.
         // -----------------------------------------------------------------
         {
-            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f)));
+            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (15.0f * UIScale::factor)));
 
             auto drawLabel = [&] (juce::Rectangle<float> half,
                                   const juce::String& label,

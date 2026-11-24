@@ -197,3 +197,13 @@ namespace Display
     static constexpr float fps          = 60.0f;
     static constexpr float blockSeconds = 1.0f / fps;
 }
+
+/**
+    Global UI scale factor, updated by the editor whenever it resizes.
+    Components that want their fonts to scale with the window (buttons,
+    labels, etc.) multiply their base sizes by this value.
+*/
+namespace UIScale
+{
+    inline float factor = 1.0f;
+}

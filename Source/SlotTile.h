@@ -35,14 +35,19 @@ public:
     void setLoading (bool shouldBeLoading) { loading = shouldBeLoading; repaint(); }
     void setMissing (bool shouldBeMissing) { missing = shouldBeMissing; repaint(); } 
 
+    void setScale (float newScale);
+
     std::function<void(int)> onSelected;
     std::function<void(int)> onDeleted;
     std::function<void(int, const juce::File&)> onFileDropped;
+
 
 private:
     class DeleteButton;
 
     int logical = 0;
+
+    float scale = 1.0f;
 
     std::unique_ptr<DeleteButton> deleteButton;
 

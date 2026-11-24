@@ -5,7 +5,7 @@
 #include <array>
 #include <memory>
 #include <functional>
-#include "SlotGrid.h"
+
 
 /**
     2-column grid of slot tiles plus a ghost "+ Add" tile.
@@ -33,10 +33,13 @@ void changeListenerCallback (juce::ChangeBroadcaster* source) override;
     void refresh();
 
     static int preferredHeightFor (int visibleCount);
+    static int preferredHeightFor (int visibleCount, float scale);
 
     std::function<void()> onGhostClicked;
 
     void forEachVisibleTileBounds (const std::function<void (juce::Rectangle<float>)>& fn) const;
+
+    void setScale (float newScale);
 
 private:
    
@@ -49,6 +52,8 @@ private:
     static constexpr int tileHeight = 35;
     static constexpr int tileGapX   = 6;
     static constexpr int tileGapY   = 6;
+
+    float currentScale = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SlotGrid)
 };

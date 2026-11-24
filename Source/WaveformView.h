@@ -36,6 +36,8 @@ public:
     // can clear any preview display.
     std::function<void(float, float)> onLoopRangePreviewChanged;
 
+    void setScale (float newScale) { scale = newScale; repaint(); }
+
 private:
     enum class LoopEdge { none, start, end };
 
@@ -96,6 +98,8 @@ private:
     // Much smaller than the creation minimum, so the user can fine-tune
     // a loop down to a fraction of a second.
     static constexpr float minEdgeDragWidthNorm = 0.001f;
+
+    float scale = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveformView)
 };

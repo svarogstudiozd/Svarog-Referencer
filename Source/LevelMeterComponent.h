@@ -13,6 +13,11 @@ public:
     void paint (juce::Graphics& g) override;
 
     void setSource (LevelMeterSource* newSource) { source = newSource; }
+    void setScale (float newScale) { scale = newScale; repaint(); }
+
+    
+private:
+    float scale = 1.0f;
 
 private:
     void timerCallback() override;

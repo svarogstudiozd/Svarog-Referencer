@@ -56,6 +56,64 @@ ReferenceMaxAudioProcessor::ReferenceMaxAudioProcessor()
     }
 
     addSlot();
+    loadEditorSizeFromSettings();
+}
+
+std::unique_ptr<juce::PropertiesFile> ReferenceMaxAudioProcessor::createEditorSettingsFile() const
+{
+    juce::PropertiesFile::Options options;
+    options.applicationName     = "SvarogReferencerPlus";
+    options.filenameSuffix    = "settings";
+    options.osxLibrarySubFolder = "Application Support";
+    options.folderName        = "Svarog Studio/Svarog Referencer +";
+    options.storageFormat     = juce::PropertiesFile::storeAsXML;
+
+    return std::make_unique<juce::PropertiesFile> (options);
+}
+
+void ReferenceMaxAudioProcessor::loadEditorSizeFromSettings()
+{
+    if (auto props = createEditorSettingsFile())
+    {
+        const int w = props->getIntValue ("editorWidth", 920);
+        const int h = props->getIntValue ("editorHeight", 0);
+
+        if (w > 0)
+            savedEditorWidth.store (w, std::memory_order_relaxed);
+        if (h > 0)
+            savedEditorHeight.store (h, std::memory_order_relaxed);
+    }
+}
+
+void ReferenceMaxAudioProcessor::saveEditorSizeToSettings (int width, int height)
+{
+    if (auto props = createEditorSettingsFile())
+    {
+        if (width > 0)
+            props->setValue ("editorWidth", width);
+        if (height > 0)
+            props->setValue ("editorHeight", height);
+        props->saveIfNeeded();
+    }
+}
+
+void ReferenceMaxAudioProcessor::setSavedEditorSize (int width, int height)
+{
+    if (width > 0)  savedEditorWidth.store (width, std::memory_order_relaxed);
+    if (height > 0) savedEditorHeight.store (height, std::memory_order_relaxed);
+
+    saveEditorSizeToSettings (savedEditorWidth.load (std::memory_order_relaxed),
+                              savedEditorHeight.load (std::memory_order_relaxed));
+}
+
+int ReferenceMaxAudioProcessor::getSavedEditorWidth() const noexcept
+{
+    return savedEditorWidth.load (std::memory_order_relaxed);
+}
+
+int ReferenceMaxAudioProcessor::getSavedEditorHeight() const noexcept
+{
+    return savedEditorHeight.load (std::memory_order_relaxed);
 }
 
 ReferenceMaxAudioProcessor::~ReferenceMaxAudioProcessor()
@@ -87,7 +145,6 @@ ReferenceMaxAudioProcessor::~ReferenceMaxAudioProcessor()
 
     readAheadThread.stopThread (2000);
 }
-
 //==============================================================================
 
 void ReferenceMaxAudioProcessor::resetSlotOrderToIdentity() noexcept
@@ -901,7 +958,6 @@ void ReferenceMaxAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
     for (int i = 0; i < maxReferenceSlots; ++i)
     {
         auto& slot = *slots[(size_t) i];
-
         state.setProperty ("file_" + juce::String (i), slot.getFile().getFullPathName(), nullptr);
         state.setProperty ("pos_" + juce::String (i), slot.getNormalizedPosition(), nullptr);
         state.setProperty ("loopEnabled_" + juce::String (i), slot.isLoopEnabled(), nullptr);
@@ -909,12 +965,14 @@ void ReferenceMaxAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         state.setProperty ("loopEnd_" + juce::String (i), slot.getLoopEndNormalized(), nullptr);
     }
 
-    sessionTimer.writeToTree (state);   // <-- ADDED
+    state.setProperty ("editorWidth",  getSavedEditorWidth(),  nullptr);
+    state.setProperty ("editorHeight", getSavedEditorHeight(), nullptr);
+
+    sessionTimer.writeToTree (state);
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
-
 void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
@@ -925,6 +983,15 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
             apvts.replaceState (state);
 
         resetSlotOrderToIdentity();
+      
+
+       //  const int restoredW = (int) state.getProperty ("editorWidth", 0);
+       //  const int restoredH = (int) state.getProperty ("editorHeight", 0);
+       //  if (restoredW > 0)
+       //      savedEditorWidth.store (restoredW, std::memory_order_relaxed);
+       //  if (restoredH > 0)
+       //      savedEditorHeight.store (restoredH, std::memory_order_relaxed);
+
 
         bool orderRestored[maxReferenceSlots] = {};
         int  restoredCount = 0;
@@ -998,10 +1065,7 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
 
         sessionTimer.readFromTree (state);   // <-- ADDED
 
-            // Push the restored minutes value into the SessionTimer. The
-        // parameter listener will also fire as APVTS notifies, but the
-        // order of those notifications isn't guaranteed relative to
-        // readFromTree, so do it explicitly to be certain.
+        // Push the restored minutes value into the SessionTimer.[cite: 13]
         if (autoPauseMinutesParam != nullptr)
         {
             const int minutes = juce::jlimit (1, 60,

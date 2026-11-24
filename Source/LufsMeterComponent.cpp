@@ -41,15 +41,14 @@ LufsMeterComponent::~LufsMeterComponent()
 
 void LufsMeterComponent::resized()
 {
-    auto inner = getLocalBounds().toFloat().reduced (4.0f).toNearestInt();
+    auto inner = getLocalBounds().toFloat().reduced (4.0f * scale).toNearestInt();
 
-    auto valueStrip = inner.removeFromTop (20);
-    inner.removeFromTop (4);
+    auto valueStrip = inner.removeFromTop (juce::roundToInt (20.0f * scale));
+    inner.removeFromTop (juce::roundToInt (4.0f * scale));
 
-    auto labelStrip = inner.removeFromBottom (18);
-    inner.removeFromBottom (4);
+    auto labelStrip = inner.removeFromBottom (juce::roundToInt (18.0f * scale));
+    inner.removeFromBottom (juce::roundToInt (4.0f * scale));
 
-    // The button fills the label strip.
     modeButton.setBounds (labelStrip);
 }
 
@@ -115,7 +114,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
 {
        auto bounds = getLocalBounds().toFloat();
 
-    const float wellRadius = Radius::well;
+    const float wellRadius = Radius::well * scale;
 
   // Dark fill.
     g.setColour (juce::Colour (0xff2a2a2a));
@@ -132,7 +131,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
         g.reduceClipRegion (clip, {});
 
         // --- Inner shadow, four soft bands ---
-        const float shadowDepth = 22.0f;
+        const float shadowDepth = 22.0f * scale;
 
         // Top band — dark at the top edge, fading downward.
         {
@@ -255,22 +254,21 @@ void LufsMeterComponent::paint (juce::Graphics& g)
         g.fillPath (outline);
     }
     }
-    auto inner = bounds.reduced (4.0f, 4.0f);
+    auto inner = bounds.reduced (4.0f * scale, 4.0f * scale);
 
-    auto valueStrip = inner.removeFromTop (20.0f);
-    inner.removeFromTop (4.0f);
+    auto valueStrip = inner.removeFromTop (20.0f * scale);
+    inner.removeFromTop (4.0f * scale);
 
-    auto labelStrip = inner.removeFromBottom (18.0f);
-    inner.removeFromBottom (4.0f);
+    auto labelStrip = inner.removeFromBottom (18.0f * scale);
+    inner.removeFromBottom (4.0f * scale);
 
     auto barArea = inner;
-    auto scaleArea = barArea.removeFromRight (18.0f);
-    barArea.removeFromRight (2.0f);
-
+    auto scaleArea = barArea.removeFromRight (18.0f * scale);
+    barArea.removeFromRight (2.0f * scale);
     auto bar = barArea;
 
     g.setColour (Theme::inset);
-    g.fillRoundedRectangle (bar, 2.0f);
+    g.fillRoundedRectangle (bar, 2.0f * scale);
 
         const bool isSilent = displayedLufs <= -39.5f;
     const float norm = normFromLufs (displayedLufs, minLufs, maxLufs);
@@ -291,7 +289,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
                 false);
 
         g.setGradientFill (grad);
-        g.fillRoundedRectangle (fillArea, 2.0f);
+        g.fillRoundedRectangle (fillArea, 2.0f * scale);
 
         // Thin bright line at the top of the fill.
         g.setColour (juce::Colour (0xfffff0f0));
@@ -316,7 +314,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
      // Scale labels
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f * scale)));
 
         const float ticks[] = { 0.0f, -9.0f, -14.0f, -24.0f, -40.0f };
 
@@ -325,7 +323,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
             const float n = normFromLufs (t, minLufs, maxLufs);
             const float y = bar.getBottom() - n * bar.getHeight();
 
-            constexpr int labelHeight = 12;
+            const int labelHeight = juce::roundToInt (12.0f * scale);
             int labelY = (int) y - labelHeight / 2;
 
             // Clamp so the top and bottom labels don't sit flush
@@ -352,7 +350,7 @@ void LufsMeterComponent::paint (juce::Graphics& g)
     // Top numeric value
     {
         g.setColour (isSilent ? Theme::textFaint : Theme::greyLight);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (13.0f * scale)));
 
         const juce::String txt = isSilent
             ? juce::String ("--")

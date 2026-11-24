@@ -112,15 +112,32 @@ void FilterBar::paint (juce::Graphics& g)
 
 }
 
+void FilterBar::setScale (float newScale)
+{
+    if (juce::approximatelyEqual (currentScale, newScale))
+        return;
+
+    currentScale = newScale;
+
+    titleLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold())
+                                      .withHeight (15.0f * currentScale)));
+
+    lowXoverBox.setScale (currentScale);
+    highXoverBox.setScale (currentScale);
+
+    resized();
+}
+
 void FilterBar::resized()
 {
-    auto bounds = getLocalBounds().reduced (10, 6);
+    auto bounds = getLocalBounds().reduced (juce::roundToInt (10.0f * currentScale),
+                                            juce::roundToInt (6.0f * currentScale));
 
-    titleLabel.setBounds (bounds.removeFromLeft (52));
-    bounds.removeFromLeft (6);
+    titleLabel.setBounds (bounds.removeFromLeft (juce::roundToInt (52.0f * currentScale)));
+    bounds.removeFromLeft (juce::roundToInt (6.0f * currentScale));
 
-    const int buttonWidth = 78;
-    const int buttonGap   = 4;
+    const int buttonWidth = juce::roundToInt (78.0f * currentScale);
+    const int buttonGap   = juce::roundToInt (4.0f * currentScale);
 
     lowButton .setBounds (bounds.removeFromLeft (buttonWidth));
     bounds.removeFromLeft (buttonGap);
@@ -128,17 +145,17 @@ void FilterBar::resized()
     bounds.removeFromLeft (buttonGap);
     highButton.setBounds (bounds.removeFromLeft (buttonWidth));
 
-    bounds.removeFromLeft (16);
+    bounds.removeFromLeft (juce::roundToInt (16.0f * currentScale));
 
-    const int boxWidth = 140;
-    const int boxGap   = 8;
+    const int boxWidth = juce::roundToInt (140.0f * currentScale);
+    const int boxGap   = juce::roundToInt (8.0f * currentScale);
 
     lowXoverBox .setBounds (bounds.removeFromLeft (boxWidth));
     bounds.removeFromLeft (boxGap);
     highXoverBox.setBounds (bounds.removeFromLeft (boxWidth));
 
-    const int utilWidth = 78;
-    const int utilGap   = 6;
+    const int utilWidth = juce::roundToInt (78.0f * currentScale);
+    const int utilGap   = juce::roundToInt (6.0f * currentScale);
 
     auto rightArea = bounds.removeFromRight (utilWidth * 2 + utilGap);
     swapButton.setBounds (rightArea.removeFromRight (utilWidth));

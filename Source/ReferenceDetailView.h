@@ -37,6 +37,8 @@ public:
 
     void paintOverChildren (juce::Graphics& g) override;
 
+    void setScale (float newScale);
+
 private:
     // A TextButton that also fires a callback on double-click. Used by the
     // Match and Offset buttons, which have single-click and double-click
@@ -144,6 +146,8 @@ private:
     // -1 means "not previewing".
     float previewLoopStart = -1.0f;
     float previewLoopEnd   = -1.0f;
+
+    float currentScale = 1.0f;
 
     static constexpr double learningDurationMs = 3500.0;
     static constexpr double pulseHz = 1.2;

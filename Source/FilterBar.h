@@ -16,6 +16,8 @@ public:
 
     void parameterChanged (const juce::String& parameterID, float newValue) override;
 
+        void setScale (float newScale);
+
 private:
     juce::AudioProcessorValueTreeState& apvtsRef;
 
@@ -38,6 +40,8 @@ private:
     void updateButtonStates();
     void updateCrossoverClamps();
     void toggleSoloChoice (int choice);
+
+    float currentScale = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FilterBar)
 };

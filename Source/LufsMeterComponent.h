@@ -19,6 +19,11 @@ public:
 
     void setSource (LufsMeter* newSource) { source = newSource; }
 
+    void setScale (float newScale) { scale = newScale; resized(); repaint(); }
+    
+private:
+    float scale = 1.0f;
+
 private:
     enum class Mode { shortTerm, momentary, integrated };
 

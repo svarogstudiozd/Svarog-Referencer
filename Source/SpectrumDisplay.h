@@ -43,6 +43,8 @@ public:
     void setAnalyzers (SpectrumAnalyzer* dawAnalyzer,
                        SpectrumAnalyzer* refAnalyzer);
 
+    void setScale (float newScale);
+
     // Connect to the APVTS so we can read the filter state, and write
     // the crossover frequencies when the user drags them.
     void setApvts (juce::AudioProcessorValueTreeState* apvts);
@@ -132,6 +134,8 @@ private:
 
     bool deltaMode = false;
     bool expanded  = false;
+
+    float scale = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectrumDisplay)
 };

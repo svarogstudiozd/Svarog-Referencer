@@ -222,25 +222,33 @@ void SpectrumDisplay::timerCallback()
 juce::Rectangle<float> SpectrumDisplay::getPlotBounds() const
 {
     auto bounds = getLocalBounds().toFloat();
-    auto plot = bounds.reduced (10.0f, 8.0f);
-    plot.removeFromLeft (34.0f);
-    plot.removeFromBottom (16.0f);
+    auto plot = bounds.reduced (10.0f * scale, 8.0f * scale);
+    plot.removeFromLeft (34.0f * scale);
+    plot.removeFromBottom (16.0f * scale);
     return plot;
 }
 
 juce::Rectangle<int> SpectrumDisplay::getLegendBounds() const
 {
     auto bounds = getLocalBounds();
-    const int legendRight = bounds.getRight()
-                          - smallButtonRightMargin
-                          - smallButtonWidth - smallButtonGap
-                          - smallButtonWidth
-                          - legendGapToButton;
+    const int rightMargin = juce::roundToInt ((float) smallButtonRightMargin * scale);
+    const int buttonW     = juce::roundToInt ((float) smallButtonWidth      * scale);
+    const int buttonGap   = juce::roundToInt ((float) smallButtonGap        * scale);
+    const int gapToButton = juce::roundToInt ((float) legendGapToButton     * scale);
+    const int legendW     = juce::roundToInt ((float) legendWidth           * scale);
+    const int legendH     = juce::roundToInt ((float) legendHeight          * scale);
+    const int topMargin   = juce::roundToInt ((float) smallButtonTopMargin  * scale);
 
-    return { legendRight - legendWidth,
-             bounds.getY() + smallButtonTopMargin,
-             legendWidth,
-             legendHeight };
+    const int legendRight = bounds.getRight()
+                          - rightMargin
+                          - buttonW - buttonGap
+                          - buttonW
+                          - gapToButton;
+
+    return { legendRight - legendW,
+             bounds.getY() + topMargin,
+             legendW,
+             legendH };
 }
 
 
@@ -532,16 +540,16 @@ void SpectrumDisplay::paint (juce::Graphics& g)
         g.fillRoundedRectangle (bounds, Radius::panel);
     }
 
-    auto plot = bounds.reduced (10.0f, 8.0f);
+    auto plot = bounds.reduced (10.0f * scale, 8.0f * scale);
 
-    auto leftAxis   = plot.removeFromLeft (34.0f);
-    auto bottomAxis = plot.removeFromBottom (16.0f);
+    auto leftAxis   = plot.removeFromLeft (34.0f * scale);
+    auto bottomAxis = plot.removeFromBottom (16.0f * scale);
 
     drawGrid (g, plot);
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f * scale)));
 
          const float dbTicks[] = { 0.0f, -12.0f, -24.0f, -36.0f, -48.0f,
                                   -60.0f, -72.0f, -90.0f };
@@ -552,7 +560,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
             // Clamp the label box so it never extends above the plot's
             // top edge or below its bottom edge.
-            constexpr int labelHeight = 10;
+            const int labelHeight = juce::roundToInt (10.0f * scale);
             int labelY = (int) y - labelHeight / 2;
 
             const int plotTop    = (int) plot.getY();
@@ -575,7 +583,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
 
     {
         g.setColour (Theme::textSecondary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.5f * scale)));
 
         const std::pair<float, const char*> freqTicks[] = {
             { 20.0f,    "20" },
@@ -595,7 +603,7 @@ void SpectrumDisplay::paint (juce::Graphics& g)
             const float x = plot.getX() + freqToX (freq) * plot.getWidth();
 
             // Clamp the label box so it never extends past the plot bounds.
-            constexpr int labelWidth = 15;
+            const int labelWidth = juce::roundToInt (15.0f * scale);
             int labelX = (int) x - labelWidth / 2;
 
             // Keep the box inside the plot's left and right edges.
@@ -1130,9 +1138,9 @@ void SpectrumDisplay::drawLegend (juce::Graphics& g, juce::Rectangle<float> area
     const auto legend = getLegendBounds();
 
     g.setColour (Theme::background.withAlpha (0.8f));
-    g.fillRoundedRectangle (legend.toFloat(), 4.0f);
+    g.fillRoundedRectangle (legend.toFloat(), 4.0f * scale);
 
-g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f)));
+g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (11.0f * scale)));
 
     // Three visibility/emphasis states per entry:
     //   - visible + hovered  → brightest
@@ -1190,18 +1198,19 @@ g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegul
 
         // Dot.
         g.setColour (dotColour);
-        g.fillEllipse ((float) entryBounds.getX() + 4.0f,
-                       (float) entryBounds.getCentreY() - 3.0f,
-                       6.0f, 6.0f);
+        const float dotSize = 6.0f * scale;
+        g.fillEllipse ((float) entryBounds.getX() + 4.0f * scale,
+                       (float) entryBounds.getCentreY() - dotSize * 0.5f,
+                       dotSize, dotSize);
 
         // Label.
         g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold())
-                                   .withHeight (11.5f)));
+                                   .withHeight (11.5f * scale)));
         g.setColour (textColour);
         g.drawText (label,
-                    entryBounds.getX() + 14,
+                    entryBounds.getX() + juce::roundToInt (14.0f * scale),
                     entryBounds.getY(),
-                    40,
+                    juce::roundToInt (40.0f * scale),
                     entryBounds.getHeight(),
                     juce::Justification::centredLeft);
     };
@@ -1254,10 +1263,10 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
 
     const juce::String freqText = formatFrequency (freq);
 
-    constexpr int paddingX   = 6;
-    constexpr int paddingY   = 6;
-    constexpr int lineHeight = 14;
-    constexpr int dotRadius  = 3;
+    const int paddingX   = juce::roundToInt (6.0f  * scale);
+    const int paddingY   = juce::roundToInt (6.0f  * scale);
+    const int lineHeight = juce::roundToInt (14.0f * scale);
+    const int dotRadius  = juce::roundToInt (3.0f  * scale);
 
     
 
@@ -1313,7 +1322,7 @@ void SpectrumDisplay::drawHoverTooltip (juce::Graphics& g) const
 
     auto contentArea = box.reduced (paddingX, paddingY);
 
-    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.setFont (juce::FontOptions (11.0f * scale, juce::Font::bold));
 
     {
         auto line1 = contentArea.removeFromTop (lineHeight);
@@ -1371,15 +1380,33 @@ void SpectrumDisplay::resized()
 {
     auto bounds = getLocalBounds();
 
-    const int rightEdge = bounds.getRight() - smallButtonRightMargin;
+    const int rightMargin = juce::roundToInt ((float) smallButtonRightMargin * scale);
+    const int buttonW     = juce::roundToInt ((float) smallButtonWidth      * scale);
+    const int buttonH     = juce::roundToInt ((float) smallButtonHeight     * scale);
+    const int topMargin   = juce::roundToInt ((float) smallButtonTopMargin   * scale);
+    const int buttonGap   = juce::roundToInt ((float) smallButtonGap        * scale);
 
-expandButton->setBounds (rightEdge - smallButtonWidth,
-                         bounds.getY() + smallButtonTopMargin,
-                         smallButtonWidth,
-                         smallButtonHeight);
+    const int rightEdge = bounds.getRight() - rightMargin;
 
-    deltaButton.setBounds (rightEdge - smallButtonWidth * 2 - smallButtonGap,
-                           bounds.getY() + smallButtonTopMargin,
-                           smallButtonWidth,
-                           smallButtonHeight);
+expandButton->setBounds (rightEdge - buttonW,
+                         bounds.getY() + topMargin,
+                         buttonW,
+                         buttonH);
+
+    deltaButton.setBounds (rightEdge - buttonW * 2 - buttonGap,
+                           bounds.getY() + topMargin,
+                           buttonW,
+                           buttonH);
+}
+
+void SpectrumDisplay::setScale (float newScale)
+{
+    if (juce::approximatelyEqual (scale, newScale))
+        return;
+
+    scale = newScale;
+
+    // Recompute the toolbar button and legend positions for the new scale.
+    resized();
+    repaint();
 }

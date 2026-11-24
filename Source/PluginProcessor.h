@@ -64,6 +64,14 @@ public:
     void syncPlaybackState();
     void syncPlaybackState (bool dawIsPlayingKnown);
 
+    void setSavedEditorSize (int width, int height);
+    int getSavedEditorWidth() const noexcept;
+    int getSavedEditorHeight() const noexcept;
+
+
+
+
+
     SpectrumAnalyzer& getDawAnalyzer() noexcept { return dawAnalyzer; }
     SpectrumAnalyzer& getRefAnalyzer() noexcept { return refAnalyzer; }
     LevelMeterSource& getOutputMeter() noexcept { return outputMeter; }
@@ -104,6 +112,8 @@ private:
     std::array<std::atomic<float>*, maxReferenceSlots> followParams {};
     std::array<std::atomic<float>*, maxReferenceSlots> offsetParams {};
     std::array<std::atomic<float>*, maxReferenceSlots> matchParams {};
+
+
 
     std::atomic<float>* matchTargetParam = nullptr;
 
@@ -310,6 +320,13 @@ private:
                 std::swap (b[s], d[s]);
         }
     }
+
+    void loadEditorSizeFromSettings();
+    void saveEditorSizeToSettings (int width, int height);
+    std::unique_ptr<juce::PropertiesFile> createEditorSettingsFile() const;
+
+    std::atomic<int> savedEditorWidth  { 920 };
+    std::atomic<int> savedEditorHeight { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferenceMaxAudioProcessor)
 };

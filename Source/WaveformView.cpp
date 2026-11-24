@@ -29,7 +29,7 @@ juce::Rectangle<float> WaveformView::getWaveformBounds() const
     // zero sits visibly inside the well, not flush with its border.
     auto bounds = getLocalBounds().toFloat().reduced (4.0f, 1.0f);
 
-    const float rulerHeight = 20.0f;
+    const float rulerHeight = 20.0f * scale;
     auto waveformBounds = bounds;
     waveformBounds.removeFromBottom (rulerHeight);
     waveformBounds = waveformBounds.reduced (0, 2);
@@ -77,7 +77,7 @@ void WaveformView::paint (juce::Graphics& g)
 
 
     auto& thumbnail = slot.getThumbnail();
-    const float rulerHeight = 20.0f;
+    const float rulerHeight = 20.0f * scale;
     auto waveformBounds = getWaveformBounds();
 
     const bool hasWaveform = (thumbnail.getNumChannels() > 0 &&
@@ -85,19 +85,69 @@ void WaveformView::paint (juce::Graphics& g)
 
     if (hasWaveform)
     {
+        const auto drawArea = waveformBounds.reduced (4.0f, 4.0f);
+        const int numSteps = juce::jmax (1, juce::roundToInt (drawArea.getWidth() * 2.0f));
+        const double totalLen = thumbnail.getTotalLength();
+        const float midY = drawArea.getCentreY();
+        const float halfH = juce::jmax (1.0f, drawArea.getHeight() * 0.5f);
+
+        juce::Path wavePath;
+        bool pathStarted = false;
+
+        std::vector<float> mins ((size_t) numSteps, 0.0f);
+        std::vector<float> maxs ((size_t) numSteps, 0.0f);
+
+        for (int i = 0; i < numSteps; ++i)
+        {
+            const double t0 = (totalLen * (double) i) / (double) numSteps;
+            const double t1 = (totalLen * (double) (i + 1)) / (double) numSteps;
+
+            float minVal = 0.0f;
+            float maxVal = 0.0f;
+            thumbnail.getApproximateMinMax (t0, t1, 0, minVal, maxVal);
+
+            mins[(size_t) i] = juce::jlimit (-1.0f, 1.0f, minVal);
+            maxs[(size_t) i] = juce::jlimit (-1.0f, 1.0f, maxVal);
+        }
+
+        for (int i = 0; i < numSteps; ++i)
+        {
+            const float x = drawArea.getX()
+                          + (drawArea.getWidth() * (float) i) / (float) juce::jmax (1, numSteps - 1);
+            const float yTop = midY - maxs[(size_t) i] * halfH;
+
+            if (! pathStarted)
+            {
+                wavePath.startNewSubPath (x, yTop);
+                pathStarted = true;
+            }
+            else
+            {
+                wavePath.lineTo (x, yTop);
+            }
+        }
+
+        for (int i = numSteps - 1; i >= 0; --i)
+        {
+            const float x = drawArea.getX()
+                          + (drawArea.getWidth() * (float) i) / (float) juce::jmax (1, numSteps - 1);
+            const float yBot = midY - mins[(size_t) i] * halfH;
+            wavePath.lineTo (x, yBot);
+        }
+
+        wavePath.closeSubPath();
+
+        g.setColour (Theme::greyLight.withAlpha (0.85f));
+        g.fillPath (wavePath);
+
         g.setColour (Theme::greyLight);
-        thumbnail.drawChannel (g,
-                               waveformBounds.toNearestInt().reduced (4, 4),
-                               0.0,
-                               thumbnail.getTotalLength(),
-                               0,
-                               1.0f);
+        g.strokePath (wavePath, juce::PathStrokeType (0.75f));
     }
     else
     {
         const bool isEmpty = ! slot.isLoaded() && ! slot.isLoading();
         g.setColour (isEmpty ? Theme::textSecondary : Theme::textFaint);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (14.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (14.0f * scale)));
 
         const juce::String placeholder =
             isEmpty ? juce::String ("Click to add a reference")
@@ -276,7 +326,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     if (length <= 0.0)
     {
         g.setColour (Theme::textFaint);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (12.0f * scale)));
         g.drawFittedText ("--:--", rulerBounds.toNearestInt(), juce::Justification::centred, 1);
         return;
     }
@@ -301,7 +351,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
     }
 
     g.setColour (Theme::textSecondary);
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f)));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (11.0f * scale)));
 
     const int labelBoxWidth = 60;
     const int labelBoxHeight = (int) (rulerBounds.getHeight() - 8.0f + 2);
@@ -369,7 +419,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
             const juce::String label = TimeFormat::mmSs (currentTime);
 
             g.setColour (Theme::textPrimary);
-            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f)));
+            g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f * scale)));
 
             int edgeBehavior = 0;
             if (tickCount == 0)
@@ -391,7 +441,7 @@ void WaveformView::drawRuler (juce::Graphics& g, juce::Rectangle<float> bounds, 
         const juce::String label = TimeFormat::mmSs (length);
 
         g.setColour (Theme::textPrimary);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (12.0f * scale)));
 
         const auto labelRect = makeLabelRect (x, 2);
         g.drawFittedText (label, labelRect, juce::Justification::centredRight, 1);

@@ -52,6 +52,8 @@ public:
     // shadows for them.
     void forEachVisibleChildBounds (const std::function<void (juce::Rectangle<float>)>& fn) const;
 
+        void setScale (float newScale);
+
 private:
     void timerCallback() override;
 
@@ -86,6 +88,8 @@ private:
     // every tick when the value hasn't actually changed.
     juce::int64 lastDisplayedSessionSecs = -1;
     juce::int64 lastDisplayedTotalSecs   = -1;
+
+      float currentScale = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SessionStrip)
 };

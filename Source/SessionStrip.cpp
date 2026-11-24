@@ -218,47 +218,67 @@ void SessionStrip::forEachVisibleChildBounds (const std::function<void (juce::Re
     emit (resetButton);
 }
 
+void SessionStrip::setScale (float newScale)
+{
+    if (juce::approximatelyEqual (currentScale, newScale))
+        return;
+
+    currentScale = newScale;
+
+    const float labelSize = 15.0f * currentScale;
+    const auto bold = ReferenceMaxLookAndFeel::getInterBold();
+
+    sectionLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (labelSize)));
+    sessionLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (labelSize)));
+    totalLabel  .setFont (juce::Font (juce::FontOptions (bold).withHeight (labelSize)));
+
+    autoPauseField.setScale (currentScale);
+
+    resized();
+}
+
 void SessionStrip::resized()
 {
-    auto area = getLocalBounds().reduced (10, 8);
+    auto area = getLocalBounds().reduced (juce::roundToInt (10.0f * currentScale),
+                                          juce::roundToInt (8.0f * currentScale));
 
     // ---- Section label ----
-    auto sectionBlock = area.removeFromLeft (130);
-    sectionLabel.setBounds (sectionBlock.reduced (2, 0));
+    auto sectionBlock = area.removeFromLeft (juce::roundToInt (130.0f * currentScale));
+    sectionLabel.setBounds (sectionBlock.reduced (juce::roundToInt (2.0f * currentScale), 0));
 
-    area.removeFromLeft (4);
+    area.removeFromLeft (juce::roundToInt (4.0f * currentScale));
 
     // ---- Left: toggle button ----
-    auto toggleBlock = area.removeFromLeft (100);
-    toggleButton.setBounds (toggleBlock.reduced (1));
+    auto toggleBlock = area.removeFromLeft (juce::roundToInt (100.0f * currentScale));
+    toggleButton.setBounds (toggleBlock.reduced (juce::roundToInt (1.0f * currentScale)));
 
-    area.removeFromLeft (12);   // room for divider
+    area.removeFromLeft (juce::roundToInt (12.0f * currentScale));   // room for divider
 
      // ---- Auto pause button ----
-    auto autoPauseBlock = area.removeFromLeft (100);
-    autoPauseButton.setBounds (autoPauseBlock.reduced (1));
+    auto autoPauseBlock = area.removeFromLeft (juce::roundToInt (100.0f * currentScale));
+    autoPauseButton.setBounds (autoPauseBlock.reduced (juce::roundToInt (1.0f * currentScale)));
 
-    area.removeFromLeft (12);
+    area.removeFromLeft (juce::roundToInt (12.0f * currentScale));
 
     // ---- Auto pause threshold field ----
-    auto fieldBlock = area.removeFromLeft (100);
-    autoPauseField.setBounds (fieldBlock.reduced (1));
+    auto fieldBlock = area.removeFromLeft (juce::roundToInt (100.0f * currentScale));
+    autoPauseField.setBounds (fieldBlock.reduced (juce::roundToInt (1.0f * currentScale)));
 
-    area.removeFromLeft (12);   // room for divider
+    area.removeFromLeft (juce::roundToInt (12.0f * currentScale));   // room for divider
 
     // ---- Right: reset button ----
-    auto resetBlock = area.removeFromRight (72);
-    resetButton.setBounds (resetBlock.reduced (1));
+    auto resetBlock = area.removeFromRight (juce::roundToInt (72.0f * currentScale));
+    resetButton.setBounds (resetBlock.reduced (juce::roundToInt (1.0f * currentScale)));
 
-    area.removeFromRight (12);  // room for divider
+    area.removeFromRight (juce::roundToInt (12.0f * currentScale));  // room for divider
 
     // ---- Middle: two time labels ----
     const int halfWidth = area.getWidth() / 2;
 
     auto sessionArea = area.removeFromLeft (halfWidth);
-    sessionLabel.setBounds (sessionArea.reduced (4, 0));
+    sessionLabel.setBounds (sessionArea.reduced (juce::roundToInt (4.0f * currentScale), 0));
 
-    totalLabel.setBounds (area.reduced (4, 0));
+    totalLabel.setBounds (area.reduced (juce::roundToInt (4.0f * currentScale), 0));
 }
 
 //==============================================================================

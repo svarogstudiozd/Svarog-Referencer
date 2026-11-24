@@ -50,7 +50,7 @@ SlotGrid::~SlotGrid() = default;
 
 //==============================================================================
 
-int SlotGrid::preferredHeightFor (int visibleCount)
+int SlotGrid::preferredHeightFor (int visibleCount, float scale)
 {
     const int count = juce::jlimit (0, ReferenceMaxAudioProcessor::maxReferenceSlots, visibleCount);
 
@@ -59,7 +59,17 @@ int SlotGrid::preferredHeightFor (int visibleCount)
 
     const int rows = (count + 1) / 2;
 
-    return rows * tileHeight + (rows - 1) * tileGapY;
+    // Must use the same rounding as resized() so the height the editor
+    // grants the grid matches the rows the grid lays out exactly.
+    const int scaledTileHeight = juce::roundToInt ((float) tileHeight * scale);
+    const int scaledGapY       = juce::roundToInt ((float) tileGapY   * scale);
+
+    return rows * scaledTileHeight + (rows - 1) * scaledGapY;
+}
+
+int SlotGrid::preferredHeightFor (int visibleCount)
+{
+    return preferredHeightFor (visibleCount, 1.0f);
 }
 
 //==============================================================================
@@ -102,36 +112,32 @@ void SlotGrid::refresh()
 void SlotGrid::resized()
 {
     const int visible = processor.getNumVisibleSlots();
-
-    if (visible <= 0)
-        return;
+    if (visible <= 0) return;
 
     const int rows = (visible + 1) / 2;
-
     auto area = getLocalBounds();
 
-    const int colWidth = (area.getWidth() - tileGapX) / 2;
+    const int scaledTileHeight = juce::roundToInt ((float) tileHeight * currentScale);
+    const int scaledGapX       = juce::roundToInt ((float) tileGapX   * currentScale);
+    const int scaledGapY       = juce::roundToInt ((float) tileGapY   * currentScale);
+    const int colWidth = (area.getWidth() - scaledGapX) / 2;
 
     for (int row = 0; row < rows; ++row)
     {
-        auto rowArea = area.removeFromTop (tileHeight);
+        auto rowArea = area.removeFromTop (scaledTileHeight);
 
         for (int col = 0; col < 2; ++col)
         {
             const int cellIndex = row * 2 + col;
-
-            if (cellIndex >= visible)
-                break;
+            if (cellIndex >= visible) break;
 
             auto cell = rowArea.removeFromLeft (colWidth);
-
             tiles[(size_t) cellIndex]->setBounds (cell);
-
-            rowArea.removeFromLeft (tileGapX);
+            rowArea.removeFromLeft (scaledGapX);
         }
 
         if (row < rows - 1)
-            area.removeFromTop (tileGapY);
+            area.removeFromTop (scaledGapY);
     }
 }
 
@@ -152,10 +158,25 @@ void SlotGrid::forEachVisibleTileBounds (const std::function<void (juce::Rectang
 
 void SlotGrid::paint (juce::Graphics& g)
 {
+    // The tile shadows are drawn by the editor's paintLogicalContent(), which
+    // has the whole window to paint into. Drawing them here would clip the
+    // bottom row's shadow at the grid's edge.
     juce::ignoreUnused (g);
 }
 
 void SlotGrid::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     refresh(); 
+}
+
+void SlotGrid::setScale (float newScale)
+{
+    if (juce::approximatelyEqual (currentScale, newScale)) return;
+    currentScale = newScale;
+
+    for (auto& tile : tiles)
+        if (tile != nullptr)
+            tile->setScale (newScale);
+
+    resized();
 }

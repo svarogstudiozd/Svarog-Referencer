@@ -46,6 +46,8 @@ public:
     juce::String getParameterID() const { return parameterID; }
     double getCurrentValue() const noexcept { return currentValue; }
 
+    void setScale (float newScale) { scale = newScale; repaint(); }
+
 private:
     juce::AudioProcessorValueTreeState& apvts;
     juce::String parameterID;
@@ -62,6 +64,7 @@ private:
     bool   hasClamp = false;
 
     bool hovered = false;
+    float scale = 1.0f;
 
     // Drag state
     float dragStartValue = 0.0f;

@@ -70,19 +70,19 @@ public:
                                .withHeight (current.getHeight()));
     }
 
-    juce::Font getTextButtonFont (juce::TextButton& button, int buttonHeight) override
-    {
-        // Per-button fontSize is set in each button's constructor via
-        // getProperties().set("fontSize", N). Use it if present, otherwise
-        // derive something sensible from the button height.
-        const auto fontSizeVar = button.getProperties()["fontSize"];
-        const float fontSize = fontSizeVar.isVoid()
-            ? juce::jmin (15.0f, (float) buttonHeight * 0.55f)
-            : (float) fontSizeVar;
+juce::Font getTextButtonFont (juce::TextButton& button, int buttonHeight) override
+{
+    const auto fontSizeVar = button.getProperties()["fontSize"];
 
-        return juce::Font (juce::FontOptions (getInterBold())
-                               .withHeight (fontSize));
-    }
+    float baseSize = fontSizeVar.isVoid()
+        ? juce::jmin (15.0f, (float) buttonHeight * 0.55f)
+        : (float) fontSizeVar;
+
+    float scaledSize = baseSize * UIScale::factor;
+
+    return juce::Font (juce::FontOptions (getInterBold())
+                           .withHeight (scaledSize));
+}
 
 
         void drawButtonBackground (juce::Graphics& g,
@@ -246,7 +246,8 @@ else
                      bool /*shouldDrawButtonAsDown*/) override
 {
     const auto fontSizeVar = button.getProperties()["fontSize"];
-    const float fontSize = fontSizeVar.isVoid() ? 15.0f : (float) fontSizeVar;
+    const float baseFontSize = fontSizeVar.isVoid() ? 15.0f : (float) fontSizeVar;
+    const float fontSize = baseFontSize * UIScale::factor;
 
     juce::Font font (juce::FontOptions (getInterBold())
                         .withHeight (fontSize));

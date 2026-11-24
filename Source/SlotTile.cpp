@@ -22,7 +22,7 @@ public:
         const auto colour = hovered ? Theme::greyLight : Theme::textSecondary;
 
         g.setColour (colour);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (16.0f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (16.0f * scale)));
 
         g.drawFittedText (juce::String::charToString ((juce::juce_wchar) 0x00D7),
                           getLocalBounds(),
@@ -35,6 +35,8 @@ public:
         hovered = true;
         repaint();
     }
+
+    void setScale (float newScale) { scale = newScale; repaint(); }
 
     void mouseExit (const juce::MouseEvent&) override
     {
@@ -49,6 +51,7 @@ public:
     }
 
 private:
+    float scale = 1.0f;
     bool hovered = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DeleteButton)
@@ -73,6 +76,19 @@ SlotTile::SlotTile (int logicalIndex)
 }
 
 SlotTile::~SlotTile() = default;
+
+//==============================================================================
+
+void SlotTile::setScale (float newScale)
+{
+    scale = newScale;
+
+    if (deleteButton != nullptr)
+        deleteButton->setScale (newScale);
+
+    resized();
+    repaint();
+}
 
 //==============================================================================
 
@@ -157,12 +173,12 @@ void SlotTile::paint (juce::Graphics& g)
     }
 
     // --- Text ---
-    auto textArea = getLocalBounds().reduced (10, 0);
-    textArea.removeFromRight (24);
+    auto textArea = getLocalBounds().reduced (juce::roundToInt (10.0f * scale), 0);
+    textArea.removeFromRight (juce::roundToInt (24.0f * scale));
 
-    auto refArea = textArea.removeFromLeft (48);
+    auto refArea = textArea.removeFromLeft (juce::roundToInt (48.0f * scale));
     g.setColour (loaded ? Theme::greyLight : Theme::textSecondary);
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize + 1.0f)));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight ((Typography::bodySize + 1.0f) * scale)));
     g.drawFittedText ("REF " + juce::String (logical + 1),
                       refArea,
                       juce::Justification::centredLeft,
@@ -177,7 +193,7 @@ void SlotTile::paint (juce::Graphics& g)
     else
         g.setColour (loaded ? Theme::greyLight : Theme::textPrimary);
 
-    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (Typography::bodySize + 1.0f)));
+    g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight ((Typography::bodySize + 1.0f) * scale)));
 
     juce::String display = status;
     if (loading)
@@ -191,10 +207,10 @@ void SlotTile::paint (juce::Graphics& g)
 
 void SlotTile::resized()
 {
-    auto bounds = getLocalBounds().reduced (6, 0);
+    auto bounds = getLocalBounds().reduced (juce::roundToInt (6.0f * scale), 0);
 
-    const int buttonSize = 20;
-    auto rightArea = bounds.removeFromRight (buttonSize + 4);
+    const int buttonSize = juce::roundToInt (20.0f * scale);
+    auto rightArea = bounds.removeFromRight (buttonSize + juce::roundToInt (4.0f * scale));
 
     if (deleteButton != nullptr)
         deleteButton->setBounds (rightArea.withSizeKeepingCentre (buttonSize, buttonSize));
@@ -259,3 +275,4 @@ void SlotTile::filesDropped (const juce::StringArray& files, int, int)
         }
     }
 }
+

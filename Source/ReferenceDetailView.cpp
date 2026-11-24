@@ -18,6 +18,7 @@ ReferenceDetailView::ReferenceDetailView (ReferenceMaxAudioProcessor& p)
 
     fileLabel.setText ("", juce::dontSendNotification);
     fileLabel.setColour (juce::Label::textColourId, Theme::greyLight);
+    fileLabel.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterRegular()).withHeight (15.0f)));
     fileLabel.setMinimumHorizontalScale (0.6f);
     fileLabel.setJustificationType (juce::Justification::centredLeft);
     fileLabel.setInterceptsMouseClicks (false, false);
@@ -835,7 +836,7 @@ void ReferenceDetailView::paint (juce::Graphics& g)
     if (! isNoSlotMode() && statusText.isNotEmpty())
     {
         g.setColour (statusTextColour);
-        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight (Typography::bodySize + 0.5f)));
+        g.setFont (juce::Font (juce::FontOptions (ReferenceMaxLookAndFeel::getInterBold()).withHeight ((Typography::bodySize + 0.5f) * currentScale)));
         g.drawText (statusText,
                     statusRect,
                     juce::Justification::centredLeft,
@@ -886,63 +887,90 @@ void ReferenceDetailView::paintOverChildren (juce::Graphics& g)
         }
 }
 
+void ReferenceDetailView::setScale (float newScale)
+{
+    if (juce::approximatelyEqual (currentScale, newScale))
+        return;
+
+    currentScale = newScale;
+
+    const auto bold    = ReferenceMaxLookAndFeel::getInterBold();
+    const auto regular = ReferenceMaxLookAndFeel::getInterRegular();
+
+    titleLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (16.0f * currentScale)));
+    fileLabel.setFont  (juce::Font (juce::FontOptions (regular).withHeight (15.0f * currentScale)));
+    playheadTimeLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (14.0f * currentScale)));
+    timeSeparatorLabel.setFont (juce::Font (juce::FontOptions (regular).withHeight (16.0f * currentScale)));
+    gainLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (13.0f * currentScale)));
+    gainValueLabel.setFont (juce::Font (juce::FontOptions (bold).withHeight (13.0f * currentScale)));
+
+    if (waveform != nullptr)
+        waveform->setScale (currentScale);
+
+    resized();
+    repaint();
+}
+
 void ReferenceDetailView::resized()
 {
-    auto bounds = getLocalBounds().reduced (10, 6);
+    const float s = currentScale;
 
-    auto header = bounds.removeFromTop (30);
+    auto bounds = getLocalBounds().reduced (juce::roundToInt (10.0f * s),
+                                            juce::roundToInt (6.0f * s));
+
+    auto header = bounds.removeFromTop (juce::roundToInt (30.0f * s));
 
     const bool noSlots = isNoSlotMode();
 
     if (noSlots)
     {
-        const int addButtonWidth = 78;
-        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, 2));
+        const int addButtonWidth = juce::roundToInt (78.0f * s);
+        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, juce::roundToInt (2.0f * s)));
 
         titleLabel.setBounds (header);
         fileLabel.setBounds ({});
     }
     else
     {
-        const int addButtonWidth = 78;
-        const int replaceButtonWidth = 78;
+        const int addButtonWidth     = juce::roundToInt (78.0f * s);
+        const int replaceButtonWidth = juce::roundToInt (78.0f * s);
 
-        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, 2));
-        header.removeFromRight (6);
-        replaceButton.setBounds (header.removeFromRight (replaceButtonWidth).reduced (0, 2));
+        addButton.setBounds (header.removeFromRight (addButtonWidth).reduced (0, juce::roundToInt (2.0f * s)));
+        header.removeFromRight (juce::roundToInt (6.0f * s));
+        replaceButton.setBounds (header.removeFromRight (replaceButtonWidth).reduced (0, juce::roundToInt (2.0f * s)));
 
-        titleLabel.setBounds (header.removeFromLeft (56));
-        header.removeFromLeft (6);
+        titleLabel.setBounds (header.removeFromLeft (juce::roundToInt (56.0f * s)));
+        header.removeFromLeft (juce::roundToInt (6.0f * s));
 
         fileLabel.setBounds (header);
     }
 
-    bounds.removeFromTop (4);
+    bounds.removeFromTop (juce::roundToInt (4.0f * s));
 
-    const int timeRowHeight = 28;
+    const int timeRowHeight = juce::roundToInt (28.0f * s);
     auto timeRow = bounds.removeFromBottom (timeRowHeight);
 
-    bounds.removeFromBottom (6);
+    bounds.removeFromBottom (juce::roundToInt (6.0f * s));
 
     if (waveform != nullptr)
         waveform->setBounds (bounds);
 
-    const int playheadWidth   = 44;
-    const int loopButtonW     = 92;
-    const int followButtonW   = 92;
-    const int offsetButtonW   = 92;
-    const int statusWidth     = 200;
-    const int statusLeftPad   = 12;
-    const int matchButtonW    = 95;
-    const int gainLabelW      = 34;
-    const int gainSliderW     = 105;
-    const int gainValueW      = 62;
-    const int tightGap        = 4;
-    const int normalGap       = 6;
-    const int gainLabelPad    = 4;
+    const int playheadWidth   = juce::roundToInt (44.0f * s);
+    const int loopButtonW     = juce::roundToInt (92.0f * s);
+    const int followButtonW   = juce::roundToInt (92.0f * s);
+    const int offsetButtonW   = juce::roundToInt (92.0f * s);
+    const int statusWidth     = juce::roundToInt (200.0f * s);
+    const int statusLeftPad   = juce::roundToInt (12.0f * s);
+    const int matchButtonW    = juce::roundToInt (95.0f * s);
+    const int gainLabelW      = juce::roundToInt (34.0f * s);
+    const int gainSliderW     = juce::roundToInt (105.0f * s);
+    const int gainValueW      = juce::roundToInt (62.0f * s);
+    const int tightGap        = juce::roundToInt (4.0f * s);
+    const int normalGap       = juce::roundToInt (6.0f * s);
+    const int gainLabelPad    = juce::roundToInt (4.0f * s);
 
-    const int rowY = timeRow.getY() + 2;
-    const int rowH = timeRow.getHeight() - 4;
+    const int rowY = timeRow.getY() + juce::roundToInt (2.0f * s);
+    const int rowH = timeRow.getHeight() - juce::roundToInt (4.0f * s);
 
     int rx = timeRow.getRight();
 
@@ -950,7 +978,8 @@ void ReferenceDetailView::resized()
     gainValueLabel.setBounds (rx, rowY, gainValueW, rowH);
 
     rx -= normalGap + gainSliderW;
-    gainSlider.setBounds (rx - 4, rowY - 4, gainSliderW + 8, rowH + 6);
+    gainSlider.setBounds (rx - juce::roundToInt (4.0f * s), rowY - juce::roundToInt (4.0f * s),
+                          gainSliderW + juce::roundToInt (8.0f * s), rowH + juce::roundToInt (6.0f * s));
 
     rx -= normalGap + gainLabelW + gainLabelPad;
     gainLabel.setBounds (rx + gainLabelPad, rowY, gainLabelW, rowH);
@@ -960,7 +989,7 @@ void ReferenceDetailView::resized()
 
     int lx = timeRow.getX();
 
-    playheadTimeLabel.setBounds (lx + 2, rowY, playheadWidth - 4, rowH);
+    playheadTimeLabel.setBounds (lx + juce::roundToInt (2.0f * s), rowY, playheadWidth - juce::roundToInt (4.0f * s), rowH);
     lx += playheadWidth + normalGap;
 
     loopButton.setBounds (lx, rowY, loopButtonW, rowH);
