@@ -1,4 +1,4 @@
-<img src="assets/Screenshot 2.png" />
+<img src="assets/Screenshot 3.png" />
 
 ### Svarog Referencer +
 
