@@ -127,24 +127,62 @@ int ReferenceMaxAudioProcessorEditor::computeHeightForSlots (int numSlots)
 
 //==============================================================================
 
-float ReferenceMaxAudioProcessorEditor::getUiScale() const
+void ReferenceMaxAudioProcessorEditor::updateUiScale()
 {
     // The "design" (100%) size is baseWidth wide and, in the vertical
     // direction, exactly the natural height for the current slot count.
     const int naturalH = computeHeightForSlots (processorRef.getNumVisibleSlots());
 
-    if (naturalH <= 0 || baseWidth <= 0)
-        return 1.0f;
+    const int w = contentHolder.getWidth();
+    const int h = contentHolder.getHeight();
 
-    const float byWidth  = (float) getWidth()  / (float) baseWidth;
-    const float byHeight = (float) getHeight() / (float) naturalH;
+    if (naturalH <= 0 || baseWidth <= 0 || w <= 0 || h <= 0)
+        return;
 
-    // Taking the min() of both axes means the *tighter* axis limits the
-    // scale, so the whole UI (fonts, buttons, meters, slot rows) grows when
-    // you enlarge BOTH directions and shrinks when you shrink BOTH — same as
-    // Svarog Wider. The window's own minimums are design * minUiScale, so
-    // within the legal size range the scale never drops below minUiScale.
-    return juce::jlimit (minUiScale, maxUiScale, juce::jmin (byWidth, byHeight));
+    // The largest scale whose design footprint still fits the window: at
+    // that scale the fixed chrome (header, filter bar, meters, slot rows,
+    // session strip) exactly fills one axis and the analyser / waveform keep
+    // the rest. It is also the ceiling for any growth below, so the chrome
+    // can never be squeezed out of the window.
+    const float fit = juce::jlimit (minUiScale, maxUiScale,
+                                    juce::jmin ((float) w / (float) baseWidth,
+                                                (float) h / (float) naturalH));
+
+    if (uiScaleWidth <= 0 || uiScaleHeight <= 0)
+    {
+        // First layout: nothing to compare against, so use the fit.
+        uiScale = fit;
+    }
+    else
+    {
+        const float growW = (float) w / (float) uiScaleWidth;
+        const float growH = (float) h / (float) uiScaleHeight;
+
+        if (growW > 1.0f && growH > 1.0f)
+        {
+            // Enlarged in BOTH directions: zoom the whole UI, but only by the
+            // smaller of the two relative growths. Growing the chrome by the
+            // full width ratio would eat the analyser's / waveform's share of
+            // a window that did not get any taller.
+            uiScale = juce::jmin (fit, uiScale * juce::jmin (growW, growH));
+        }
+        else
+        {
+            // Stretched on a single axis (the usual case: dragging the window
+            // wider) keeps the chrome exactly as it is, so the extra space
+            // goes to the analyser and waveform — otherwise the fixed chrome
+            // grows into their share, they visibly shrink while everything
+            // else grows, and the UI only "snaps" once the aspect ratio has
+            // caught up. Shrinking in either direction still follows the fit,
+            // so the chrome always comes back down with the window.
+            uiScale = juce::jmin (uiScale, fit);
+        }
+    }
+
+    uiScale = juce::jlimit (minUiScale, maxUiScale, uiScale);
+
+    uiScaleWidth  = w;
+    uiScaleHeight = h;
 }
 
 int ReferenceMaxAudioProcessorEditor::minWindowWidth() const
@@ -195,15 +233,42 @@ void ReferenceMaxAudioProcessorEditor::resizeToFitSlotsDeferred()
 
         safe->updateResizeLimits();
 
-        // Grow (but never shrink) to the natural height for the current
-        // slot count, so the analyser and waveform keep their size.
-        const int naturalH = computeHeightForSlots (safe->processorRef.getNumVisibleSlots());
-        const int targetHeight = juce::jmax (safe->getHeight(), naturalH);
+        // The slot grid is granted a fixed height in layoutLogicalContent()
+        // and the waveform absorbs the rest, so the window only needs to
+        // change by the grid's own height delta: removing the last slot of
+        // the bottom row shrinks the window and closes the gap, adding a
+        // slot grows it. Any extra height the user has dragged in is left
+        // untouched, so a manually enlarged window keeps its size.
+        const float s = safe->getUiScale();
 
+        const int currentCount  = safe->processorRef.getNumVisibleSlots();
+        const int previousCount = safe->lastLaidOutSlotCount >= 0
+                                      ? safe->lastLaidOutSlotCount
+                                      : currentCount;
+
+        const int newGridHeight = SlotGrid::preferredHeightFor (currentCount,  s);
+        const int oldGridHeight = SlotGrid::preferredHeightFor (previousCount, s);
+
+        const int targetHeight = juce::jlimit (safe->minWindowHeight(),
+                                               safe->maxHeight,
+                                               safe->getHeight()
+                                                   + newGridHeight - oldGridHeight);
+
+        // Relayout even when the height is unchanged (e.g. 2 slots -> 1
+        // slot keeps a single row, or the window is already clamped to its
+        // minimum): the grid's granted bounds must always be re-derived from
+        // the new slot count, otherwise the deleted row leaves a gap.
         if (safe->getHeight() != targetHeight)
+        {
             safe->setSize (safe->getWidth(), targetHeight);
+        }
         else
+        {
+            // setBounds() on an unchanged contentHolder is a no-op, so the
+            // layout has to be kicked off by hand.
             safe->resized();
+            safe->layoutLogicalContent();
+        }
     });
 }
 
@@ -244,8 +309,9 @@ void ReferenceMaxAudioProcessorEditor::layoutLogicalContent()
 
     // Uniform scale for this frame. Push it into the children (fonts +
     // internal geometry) and the shared LookAndFeel before laying anything
-    // out, so every part of the UI grows together.
-    const float s = getUiScale();
+    // out, so the parts of the chrome that do scale grow together.
+    updateUiScale();
+    const float s = uiScale;
     applyScaleToChildren (s);
 
     auto bounds = contentHolder.getLocalBounds();
@@ -280,6 +346,11 @@ void ReferenceMaxAudioProcessorEditor::layoutLogicalContent()
     slotGrid.setBounds (gridArea);
     bounds.removeFromBottom (gapScaled);
 
+    // Remember the slot count this layout was built for, so a later slot
+    // count change can resize the window by the grid's height delta
+    // (see resizeToFitSlotsDeferred()).
+    lastLaidOutSlotCount = numSlots;
+
     // --- 3. Middle sections ---
     if (expanded)
     {
@@ -296,11 +367,15 @@ void ReferenceMaxAudioProcessorEditor::layoutLogicalContent()
         const int minSpec = juce::roundToInt ((float) minSpectrumHeight * s);
         const int minDet  = juce::roundToInt ((float) minDetailHeight    * s);
 
-        // Guarantee each section its minimum height, then split any extra
-        // space 55/45 in favour of the analyser.
-        const int surplus      = juce::jmax (0, flexHeight - minSpec - minDet);
-        const int spectrumTake = juce::jlimit (0, flexHeight,
-                                               minSpec + juce::roundToInt ((float) surplus * 0.55f));
+        // Split the flexible height between the analyser and the waveform
+        // panel. The analyser takes the larger share (see analyserFlexShare),
+        // but each side keeps its own minimum, so the split only decides how
+        // the *extra* height is divided and neither area can be squeezed away.
+        int spectrumTake = juce::roundToInt ((float) flexHeight * analyserFlexShare);
+        spectrumTake = juce::jlimit (minSpec,
+                                     juce::jmax (minSpec, flexHeight - minDet),
+                                     spectrumTake);
+        spectrumTake = juce::jlimit (0, flexHeight, spectrumTake);
 
         // Analyser row, with the two meters docked on the right.
         auto spectrumRow = bounds.removeFromTop (spectrumTake);
@@ -474,6 +549,28 @@ void ReferenceMaxAudioProcessorEditor::paintLogicalContent (juce::Graphics& g)
     g.fillAll (Theme::background);
 
     const auto& lf = customLookAndFeel;
+
+    // The DAW / Reference toggle sits in the header, where no panel paints
+    // shadows for its children — so it gets the same treatment here that the
+    // panels give their own buttons: a red glow around the engaged half,
+    // plus the standard control shadow for the whole control. Both are
+    // drawn behind the button (it is a child of this holder), which is what
+    // lets them spill past the button's bounds.
+    {
+        const auto toggleBounds = modeButton.getBounds().toFloat();
+
+        // Match the button's own integer mid-point so the glow lines up
+        // exactly with the half it is drawn under.
+        const auto midX = toggleBounds.getX()
+                        + (float) modeButton.getLocalBounds().getCentreX();
+
+        const auto activeHalf = modeButton.getActiveIndex() == 0
+                                    ? toggleBounds.withRight (midX)
+                                    : toggleBounds.withLeft (midX);
+
+        lf.drawControlGlow (g, activeHalf);
+        lf.drawControlShadow (g, toggleBounds);
+    }
 
     // Raised panels (filter bar, detail view) leave their shadow to the
     // parent so it can spill outside their bounds. Skip them when hidden

@@ -947,7 +947,10 @@ void ReferenceDetailView::resized()
 
     bounds.removeFromTop (juce::roundToInt (4.0f * s));
 
-    const int timeRowHeight = juce::roundToInt (28.0f * s);
+    // Row of controls (Loop / Follow / Offset / status / Match / gain); its
+    // height lives in controlRowHeight (ReferenceDetailView.h) and whatever
+    // it does not use goes to the waveform above it.
+    const int timeRowHeight = juce::roundToInt (controlRowHeight * s);
     auto timeRow = bounds.removeFromBottom (timeRowHeight);
 
     bounds.removeFromBottom (juce::roundToInt (6.0f * s));
@@ -969,8 +972,8 @@ void ReferenceDetailView::resized()
     const int normalGap       = juce::roundToInt (6.0f * s);
     const int gainLabelPad    = juce::roundToInt (4.0f * s);
 
-    const int rowY = timeRow.getY() + juce::roundToInt (2.0f * s);
-    const int rowH = timeRow.getHeight() - juce::roundToInt (4.0f * s);
+    const int rowY = timeRow.getY() + juce::roundToInt (controlRowInset * s);
+    const int rowH = timeRow.getHeight() - juce::roundToInt (controlRowInset * 2.0f * s);
 
     int rx = timeRow.getRight();
 

@@ -152,5 +152,15 @@ private:
     static constexpr double learningDurationMs = 3500.0;
     static constexpr double pulseHz = 1.2;
 
+    // --- Layout knobs (logical px; everything is multiplied by the UI scale) ---
+    // Height of the control row at the bottom of the panel (Loop / Follow /
+    // Offset / status / Match / gain). The buttons inside it are
+    // controlRowHeight - 2 * controlRowInset tall, so 29 -> 25 px buttons,
+    // 32 -> 28 px (the height of the filter bar's buttons).
+    static constexpr float controlRowHeight = 29.0f;
+    static constexpr float controlRowInset  = 2.0f;
+    // Whatever the control row does not use goes to the waveform, so nudging
+    // these values only trades canvas height for button height.
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferenceDetailView)
 };

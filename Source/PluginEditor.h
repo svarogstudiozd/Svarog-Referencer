@@ -85,9 +85,15 @@ private:
     static constexpr float maxUiScale       = 2.5f;  // cap so fonts/controls stay sane at huge sizes
     static constexpr int headerHeight       = 48;
     static constexpr int gap                = 4;
-    static constexpr int minSpectrumHeight  = 150;  // analyser can shrink this far before the window stops
+    static constexpr int minSpectrumHeight  = 135;  // analyser can shrink this far before the window stops
     static constexpr int filterBarHeight    = 40;
     static constexpr int minDetailHeight    = 140;  // waveform can shrink this far before the window stops
+    // Share of the flexible height (everything left between the analyser's
+    // and the waveform's minimums) that the analyser takes; the waveform panel
+    // gets the rest. 0.5 puts both panels at the same height, 1.0 lets the
+    // analyser eat the window. Both still keep their minimum, so this only
+    // decides how the *extra* height is divided.
+    static constexpr float analyserFlexShare = 0.60f;
     static constexpr int outerPadding       = 32;
     static constexpr int meterWidth         = 56;
     static constexpr int meterGap           = 6;
@@ -98,10 +104,11 @@ private:
 
     static int computeHeightForSlots (int numSlots);
 
-    // Uniform UI scale — grows when the window grows and shrinks when it
-    // shrinks (in BOTH directions), mirroring Svarog Wider's
-    // min(width/base, height/base), clamped to [minUiScale, maxUiScale].
-    float getUiScale() const;
+    // Uniform UI scale for the fixed chrome (title, buttons, meters, pads,
+    // slot rows), clamped to [minUiScale, maxUiScale]. Recomputed once per
+    // layout by updateUiScale() — the growth rule lives in the .cpp.
+    float getUiScale() const { return uiScale; }
+    void updateUiScale();
     void applyScaleToChildren (float newScale);
 
     // Smallest window the user can drag to: the design size scaled down by
@@ -142,6 +149,19 @@ private:
 
     bool resizePending = false;
     bool expanded      = false;
+
+    // Slot count the current layout was built for. Used to work out how much
+    // the window should grow/shrink when slots are added or removed.
+    int lastLaidOutSlotCount = -1;
+
+    // Scale the current layout was built with, plus the holder size that was
+    // in effect when it was derived. updateUiScale() compares against this,
+    // so the chrome only zooms when *both* axes have grown since the last
+    // layout — a one-axis stretch hands the new space to the analyser and
+    // waveform instead of to the fixed chrome.
+    float uiScale       = 1.0f;
+    int   uiScaleWidth  = 0;
+    int   uiScaleHeight = 0;
 
     double currentAspectRatio = 1.0; 
     bool hasRestoredInitialSize = false;
