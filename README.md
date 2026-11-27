@@ -8,7 +8,7 @@ Built/vibe coded with JUCE as a personal project. Shared because it might be use
 
 Status: v0.1.1 — early, unsigned
 Formats: AU, VST3 (macOS), VST3 (Windows)
-Tested with: Logic Pro and Cubase on macOS, Reaper on Windows
+Tested with: Logic Pro, Cubase and Luna on macOS, Reaper on Windows
 
 
 **What it does**
@@ -36,15 +36,21 @@ This is an upgraded version of the original Svarog Referencer. The core workflow
 
 - Redesigned interface — every panel, well and control has been rebuilt with a consistent depth model (raised panels, recessed wells, gradient borders and highlights). The UI now reads as a single coherent instrument rather than a collection of separate widgets.
 
-- New Project Tracking section — a session timer at the bottom of the plugin with Start / Stop / Waiting / Continue states and configurable auto-pause. Useful for tracking how much time you actually spend on a mix.
+- Resizable and flexible UI.
 
-- Reference detail view — expanded waveform view with a loop region, playhead, per-slot gain slider, offset controls and a Match button that learns the DAW's loudness on double-click.
+- BIG update on the spectrum analyser, ruler labels, waveform borders and button states. 
+Spectrum analyser now has smoother (60fps) animation and smooth more detailed curves. 
+An expand button added to make the graph bigger. 
+Delta button added to show only the differences between DAW and Reference. 
+Added abillity to turn off the DAW or Reference (or both) graphs.
+Added a tooltip following the cursor showing the frequency hovered. 
+Holding the mouse on the same position reveals peak values of DAW and Reference for the hovered frequency.
+
+- New Project Tracking section — a session timer at the bottom of the plugin with Start / Stop / Waiting / Continue states and configurable auto-pause. Useful for tracking how much time you actually spend on a mix.
 
 - Slot tiles — each reference slot is now its own tile with a live status (loaded, loading, missing file), an accent indicator and a per-slot delete.
 
 - Smoother match and follow logic, including improved auto-pause behaviour tied to audio activity.
-
-- Polish pass on the spectrum analyser, ruler labels, waveform borders and button states.
 
 
 ## Installation
