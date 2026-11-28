@@ -68,10 +68,6 @@ public:
     int getSavedEditorWidth() const noexcept;
     int getSavedEditorHeight() const noexcept;
 
-
-
-
-
     SpectrumAnalyzer& getDawAnalyzer() noexcept { return dawAnalyzer; }
     SpectrumAnalyzer& getRefAnalyzer() noexcept { return refAnalyzer; }
     LevelMeterSource& getOutputMeter() noexcept { return outputMeter; }
@@ -324,6 +320,10 @@ private:
     void loadEditorSizeFromSettings();
     void saveEditorSizeToSettings (int width, int height);
     std::unique_ptr<juce::PropertiesFile> createEditorSettingsFile() const;
+
+    // Bumped whenever the default window size changes, so sizes stored by
+    // older builds are ignored once and the new default takes effect.
+    static constexpr int currentLayoutVersion = 2;
 
     std::atomic<int> savedEditorWidth  { 920 };
     std::atomic<int> savedEditorHeight { 0 };

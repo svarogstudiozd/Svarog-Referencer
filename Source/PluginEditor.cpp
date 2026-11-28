@@ -78,10 +78,13 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     slotGrid.refresh();
 
     const int initialSlots = processorRef.getNumVisibleSlots();
-    const int defaultH = computeHeightForSlots (initialSlots);
 
-    setResizable (true, true);
-    updateResizeLimits();
+    // Default window height: the natural height for the current slot count
+    // plus 30%, so a fresh instance opens with a roomier analyser/waveform
+    // area instead of sitting at the bare minimum.
+    const int defaultH = juce::jmin (maxHeight,
+                                     juce::roundToInt ((float) computeHeightForSlots (initialSlots)
+                                                           * defaultHeightScale));
 
     const int savedW = processorRef.getSavedEditorWidth();
     const int savedH = processorRef.getSavedEditorHeight();
@@ -89,7 +92,15 @@ ReferenceMaxAudioProcessorEditor::ReferenceMaxAudioProcessorEditor (ReferenceMax
     const int initW = (savedW > 0) ? juce::jlimit (minWindowWidth(),  maxWidth,  savedW) : baseWidth;
     const int initH = (savedH > 0) ? juce::jlimit (minWindowHeight(), maxHeight, savedH) : defaultH;
 
+    // Size the editor BEFORE applying the resize limits:
+    // AudioProcessorEditor::setResizeLimits() ends with
+    // setBoundsConstrained (getBounds()), so applying limits while the editor
+    // is still 0x0 would clamp it straight to the minimum size and throw the
+    // default/saved size away.
     setSize (initW, initH);
+
+    setResizable (true, true);
+    updateResizeLimits();
 
     applyVisibilityForCurrentMode();
 }
@@ -274,24 +285,8 @@ void ReferenceMaxAudioProcessorEditor::resizeToFitSlotsDeferred()
 
 void ReferenceMaxAudioProcessorEditor::resized()
 {
-    // First pass after construction: restore the saved size (clamped to
-    // the current limits so a saved size can never violate them).
-    if (! hasRestoredInitialSize)
-    {
-        hasRestoredInitialSize = true;
-
-        const int savedW = processorRef.getSavedEditorWidth();
-        const int savedH = processorRef.getSavedEditorHeight();
-
-        if (savedW > 0 && savedH > 0)
-        {
-            setSize (juce::jlimit (minWindowWidth(),  maxWidth,  savedW),
-                     juce::jlimit (minWindowHeight(), maxHeight, savedH));
-            return;
-        }
-    }
-
-    // Save the size to the processor
+    // Remember the size the user drags to, so the next instance/window opens
+    // the same way (persisted in the Application Support settings file).
     processorRef.setSavedEditorSize (getWidth(), getHeight());
 
     // Give contentHolder the full window bounds.

@@ -81,6 +81,9 @@ private:
     static constexpr int baseWidth          = 920;
     static constexpr int maxWidth           = 2560;
     static constexpr int maxHeight          = 1600;
+    // Fresh instances open this much taller than the natural (all-minimum)
+    // height, so the analyser / waveform get extra room out of the box.
+    static constexpr float defaultHeightScale = 1.3f;
     static constexpr float minUiScale       = 0.75f; // shrink floor: window may go below the design size
     static constexpr float maxUiScale       = 2.5f;  // cap so fonts/controls stay sane at huge sizes
     static constexpr int headerHeight       = 48;
@@ -164,7 +167,6 @@ private:
     int   uiScaleHeight = 0;
 
     double currentAspectRatio = 1.0; 
-    bool hasRestoredInitialSize = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ReferenceMaxAudioProcessorEditor)
 };

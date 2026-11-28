@@ -63,10 +63,10 @@ std::unique_ptr<juce::PropertiesFile> ReferenceMaxAudioProcessor::createEditorSe
 {
     juce::PropertiesFile::Options options;
     options.applicationName     = "SvarogReferencerPlus";
-    options.filenameSuffix    = "settings";
+    options.filenameSuffix      = "settings";
     options.osxLibrarySubFolder = "Application Support";
-    options.folderName        = "Svarog Studio/Svarog Referencer +";
-    options.storageFormat     = juce::PropertiesFile::storeAsXML;
+    options.folderName          = "Svarog Studio/Svarog Referencer +";
+    options.storageFormat       = juce::PropertiesFile::storeAsXML;
 
     return std::make_unique<juce::PropertiesFile> (options);
 }
@@ -75,6 +75,11 @@ void ReferenceMaxAudioProcessor::loadEditorSizeFromSettings()
 {
     if (auto props = createEditorSettingsFile())
     {
+        // Sizes written by builds before the 30%-taller default are stored as
+        // layout version 1: ignore them once so the new default is used.
+        if (props->getIntValue ("layoutVersion", 1) < currentLayoutVersion)
+            return;
+
         const int w = props->getIntValue ("editorWidth", 920);
         const int h = props->getIntValue ("editorHeight", 0);
 
@@ -93,6 +98,7 @@ void ReferenceMaxAudioProcessor::saveEditorSizeToSettings (int width, int height
             props->setValue ("editorWidth", width);
         if (height > 0)
             props->setValue ("editorHeight", height);
+        props->setValue ("layoutVersion", currentLayoutVersion);
         props->saveIfNeeded();
     }
 }
@@ -965,9 +971,6 @@ void ReferenceMaxAudioProcessor::getStateInformation (juce::MemoryBlock& destDat
         state.setProperty ("loopEnd_" + juce::String (i), slot.getLoopEndNormalized(), nullptr);
     }
 
-    state.setProperty ("editorWidth",  getSavedEditorWidth(),  nullptr);
-    state.setProperty ("editorHeight", getSavedEditorHeight(), nullptr);
-
     sessionTimer.writeToTree (state);
 
     if (auto xml = state.createXml())
@@ -983,15 +986,6 @@ void ReferenceMaxAudioProcessor::setStateInformation (const void* data, int size
             apvts.replaceState (state);
 
         resetSlotOrderToIdentity();
-      
-
-       //  const int restoredW = (int) state.getProperty ("editorWidth", 0);
-       //  const int restoredH = (int) state.getProperty ("editorHeight", 0);
-       //  if (restoredW > 0)
-       //      savedEditorWidth.store (restoredW, std::memory_order_relaxed);
-       //  if (restoredH > 0)
-       //      savedEditorHeight.store (restoredH, std::memory_order_relaxed);
-
 
         bool orderRestored[maxReferenceSlots] = {};
         int  restoredCount = 0;
